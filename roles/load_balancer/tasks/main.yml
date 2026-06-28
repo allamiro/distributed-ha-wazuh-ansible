@@ -28,6 +28,25 @@
     - ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
     - lb_selinux_ports | length > 0
 
+# The Runtime API stats socket lives in /run/haproxy, which doesn't exist on a
+# fresh install until the next boot. Create it now AND persist it via tmpfiles
+# so it survives reboots (otherwise the first 'systemctl start' fails).
+- name: Persist the HAProxy runtime dir across reboots (tmpfiles)
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/haproxy.conf
+    content: "d /run/haproxy 0750 haproxy haproxy -\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create the HAProxy runtime dir now
+  ansible.builtin.file:
+    path: /run/haproxy
+    state: directory
+    owner: haproxy
+    group: haproxy
+    mode: "0750"
+
 # include_tasks (not import_tasks): the `when` is evaluated before the file is
 # loaded, so tls_cert.yml's delegate_to: ca_host is never templated when TLS
 # termination is off (ca_host only exists in the SSL inventory).
