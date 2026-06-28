@@ -39,3 +39,7 @@ opensearch_security.multitenancy.tenants.preferred: ["Global", "Private"]
 opensearch_security.readonly_mode.roles: ["kibana_read_only"]
 {% endif %}
 uiSettings.overrides.defaultRoute: {{ dashboard_default_route }}
+
+# Explicit UI locale — without this the dashboard bootstrap throws
+# "[I18n] A `locale` must be a non-empty string to add messages".
+i18n.locale: "{{ dashboard_locale | default('en') }}"

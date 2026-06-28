@@ -13,6 +13,7 @@ dashboard_server_host: "0.0.0.0"
 
 # UI / security
 dashboard_default_route: "/app/wz-home"
+dashboard_locale: "en"
 dashboard_multitenancy_enabled: false
 
 # Indexer connection (dashboard -> indexer)
