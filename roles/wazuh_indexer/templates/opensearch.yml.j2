@@ -28,6 +28,10 @@ cluster.initial_cluster_manager_nodes:
 
 bootstrap.memory_lock: true
 
+{% if not (enable_ssl | default(true)) %}
+# --- SSL disabled (test build) ---
+plugins.security.disabled: true
+{% else %}
 # --- Security (OpenSearch security plugin) ---
 plugins.security.ssl.transport.pemcert_filepath: certs/{{ inventory_hostname }}.pem
 plugins.security.ssl.transport.pemkey_filepath: certs/{{ inventory_hostname }}-key.pem
@@ -65,5 +69,6 @@ plugins.security.system_indices.indices:
   - ".opensearch-ml-config"
   - ".opendistro-asynchronous-search-response*"
   - ".replication-metadata-store"
+{% endif %}
 
 compatibility.override_main_response_version: true

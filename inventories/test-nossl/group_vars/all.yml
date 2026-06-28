@@ -1,0 +1,16 @@
+---
+# Shared vars for the no-SSL test build.
+wazuh_version: "4.9.0"
+wazuh_repo_baseurl: "https://packages.wazuh.com/4.x"
+wazuh_repo_gpgkey: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+
+target_os: "Rocky Linux 9"
+wazuh_cluster_name: "wazuh-test"
+
+wazuh_vip: "10.0.100.10"
+wazuh_dashboard_fqdn: "siem.local.domain"
+wazuh_dashboard_url: "http://{{ wazuh_dashboard_fqdn }}"   # http, no TLS
+
+# PKI off
+enable_ssl: false
+certs_generate_on: "indexer-hot-1"

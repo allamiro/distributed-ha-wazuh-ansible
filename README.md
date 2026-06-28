@@ -23,6 +23,7 @@ Users/Analysts ──> HAProxy (https://siem.local.domain) ──> Dashboard-1 /
 
 | Role / Tier            | Hostname / FQDN                  | IP address (/16) | Inventory group        |
 |------------------------|----------------------------------|------------------|------------------------|
+| Certificate Authority  | `wazuh-ca.local.domain`          | `10.0.100.100`   | `wazuh_ca`             |
 | HAProxy load balancer  | `haproxy-1.local.domain`         | `10.0.100.10`    | `load_balancer`        |
 | Wazuh Dashboard 1      | `dashboard-1.local.domain`       | `10.0.100.20`    | `wazuh_dashboard`      |
 | Wazuh Dashboard 2      | `dashboard-2.local.domain`       | `10.0.100.30`    | `wazuh_dashboard`      |
@@ -53,6 +54,36 @@ Management (ISM) can age data hot → warm → cold.
 | MinIO S3 storage   | `10.0.100.80+` | `minio`         | Snapshots / backups / ML artifacts   |
 | External ML server | `10.0.100.90`  | `ml_server`     | Anomaly detection / enrichment       |
 | Wazuh agents       | `10.0.200.0/24`| `wazuh_agents`  | Endpoint enrollment                  |
+
+## Two inventories: SSL and no-SSL
+
+The project ships two inventories so you can stand up a quick functional test
+without TLS, then deploy the real, secured cluster:
+
+| Inventory | TLS | CA host | Use |
+|---|---|---|---|
+| [`inventories/production`](inventories/production/) | **on** (`enable_ssl: true`) | `wazuh-ca` @ `10.0.100.100` | Real deployment — full PKI |
+| [`inventories/test-nossl`](inventories/test-nossl/) | **off** (`enable_ssl: false`) | none | Fast functional test, no certs |
+
+```bash
+# Secured (default)
+ansible-playbook site.yml -i inventories/production/hosts.yml --ask-vault-pass
+
+# No-SSL test build
+ansible-playbook site.yml -i inventories/test-nossl/hosts.yml
+```
+
+When `enable_ssl` is **off**, the `certificates` role is skipped entirely and
+the indexer runs with `plugins.security.disabled: true`.
+
+### How the CA works (`enable_ssl: true`)
+
+1. `wazuh-ca` downloads the Wazuh certs tool and generates the **root CA**.
+2. It **signs** a certificate for every indexer / server / dashboard node
+   (plus the indexer **admin** cert) from one `config.yml` built off the inventory.
+3. The `certificates` role **copies each node's certs back** to that node
+   (`root-ca.pem`, `<node>.pem`, `<node>-key.pem`) into the component's cert dir.
+4. Each component role then consumes them (the indexer fails fast if its cert is missing).
 
 ## Scaling the deployment
 

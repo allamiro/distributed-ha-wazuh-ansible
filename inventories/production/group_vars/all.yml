@@ -33,6 +33,8 @@ manager_cluster_key: "{{ vault_manager_cluster_key }}"   # define in vault
 manager_cluster_port: 1516
 manager_agent_port: 1514
 
-# Certificates
+# Certificates / PKI
+enable_ssl: true
 certs_dir: /etc/wazuh-certificates
-certs_generate_on: "indexer-hot-1"   # node that bootstraps the CA
+ca_host: "{{ groups['wazuh_ca'][0] }}"   # dedicated CA box (generates + signs)
+certs_generate_on: "indexer-hot-1"       # indexer node that runs securityadmin

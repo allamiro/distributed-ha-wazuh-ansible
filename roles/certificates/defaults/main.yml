@@ -1,0 +1,23 @@
+---
+# roles/certificates/defaults/main.yml
+
+# Wazuh certs tool (downloaded onto the CA host)
+certs_tool_url: "{{ wazuh_repo_baseurl }}/wazuh-certs-tool.sh"
+certs_workdir: /root/wazuh-certs                       # on the CA host
+certs_output_dir: "{{ certs_workdir }}/wazuh-certificates"
+
+# Where each component expects its certs on the target node.
+cert_component_dirs:
+  indexer: /etc/wazuh-indexer/certs
+  server: /etc/filebeat/certs
+  dashboard: /etc/wazuh-dashboard/certs
+
+# Owner the certs should end up as on each component. The component's own role
+# re-chowns after its package creates the service user, so root is a safe landing.
+cert_component_owners:
+  indexer: root
+  server: root
+  dashboard: root
+
+# Force regeneration of the whole PKI (otherwise the CA is created once).
+certs_force_regenerate: false

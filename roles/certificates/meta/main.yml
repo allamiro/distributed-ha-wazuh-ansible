@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: certificates
+  author: Tamir Suliman
+  description: Generate a root CA and per-node TLS certs on a dedicated CA host, distribute them
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

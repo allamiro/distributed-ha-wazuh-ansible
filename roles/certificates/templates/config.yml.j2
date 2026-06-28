@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+# Input for wazuh-certs-tool.sh -A. Node names MUST equal inventory hostnames
+# so the generated <name>.pem files line up with each component's config.
+nodes:
+  indexer:
+{% for host in groups['wazuh_indexer'] | default([]) | sort %}
+    - name: {{ host }}
+      ip: "{{ hostvars[host].ansible_host }}"
+{% endfor %}
+
+  server:
+{% for host in groups['wazuh_manager_master'] | default([]) | sort %}
+    - name: {{ host }}
+      ip: "{{ hostvars[host].ansible_host }}"
+      node_type: master
+{% endfor %}
+{% for host in groups['wazuh_manager_worker'] | default([]) | sort %}
+    - name: {{ host }}
+      ip: "{{ hostvars[host].ansible_host }}"
+      node_type: worker
+{% endfor %}
+
+  dashboard:
+{% for host in groups['wazuh_dashboard'] | default([]) | sort %}
+    - name: {{ host }}
+      ip: "{{ hostvars[host].ansible_host }}"
+{% endfor %}

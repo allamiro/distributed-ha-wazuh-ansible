@@ -55,18 +55,30 @@
     owner: wazuh-indexer
     group: wazuh-indexer
     mode: "0500"
+  when: enable_ssl | bool
 
 - name: Verify node certificates are present (delivered by the certificates role)
   ansible.builtin.stat:
     path: "{{ indexer_certs_dir }}/{{ inventory_hostname }}.pem"
   register: indexer_cert_stat
+  when: enable_ssl | bool
 
 - name: Fail if certificates are missing
   ansible.builtin.fail:
     msg: >-
       {{ indexer_certs_dir }}/{{ inventory_hostname }}.pem not found.
       Run playbooks/certificates.yml before deploying the indexer.
-  when: not indexer_cert_stat.stat.exists
+  when:
+    - enable_ssl | bool
+    - not indexer_cert_stat.stat.exists
+
+- name: Ensure the indexer owns its certificates (chown after package created the user)
+  ansible.builtin.file:
+    path: "{{ indexer_certs_dir }}"
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    recurse: true
+  when: enable_ssl | bool
 
 # --- Configuration ---
 - name: Deploy opensearch.yml
@@ -106,5 +118,6 @@
 - name: Initialize the security index
   ansible.builtin.import_tasks: securityadmin.yml
   when:
+    - enable_ssl | bool
     - indexer_run_securityadmin | bool
     - inventory_hostname == certs_generate_on

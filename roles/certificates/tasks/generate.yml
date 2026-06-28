@@ -1,0 +1,50 @@
+---
+# roles/certificates/tasks/generate.yml  (runs on the wazuh_ca host)
+
+- name: Create the CA working directory
+  ansible.builtin.file:
+    path: "{{ certs_workdir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Remove previous certificates when forcing regeneration
+  ansible.builtin.file:
+    path: "{{ certs_output_dir }}"
+    state: absent
+  when: certs_force_regenerate | bool
+
+- name: Download the Wazuh certs tool
+  ansible.builtin.get_url:
+    url: "{{ certs_tool_url }}"
+    dest: "{{ certs_workdir }}/wazuh-certs-tool.sh"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Render the certs tool config from the inventory
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ certs_workdir }}/config.yml"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Generate the root CA and sign all node + admin certificates
+  ansible.builtin.command:
+    cmd: "./wazuh-certs-tool.sh -A"
+    chdir: "{{ certs_workdir }}"
+    creates: "{{ certs_output_dir }}/root-ca.pem"
+
+- name: Confirm certificates were produced
+  ansible.builtin.find:
+    paths: "{{ certs_output_dir }}"
+    patterns: "*.pem"
+  register: ca_generated_certs
+
+- name: Assert the expected certificate count
+  ansible.builtin.assert:
+    that: ca_generated_certs.matched > 0
+    fail_msg: "No certificates were generated in {{ certs_output_dir }}."
+    quiet: true

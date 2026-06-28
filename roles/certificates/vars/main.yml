@@ -1,0 +1,9 @@
+---
+# roles/certificates/vars/main.yml
+
+# Which component family this host belongs to (drives cert destination).
+node_component: >-
+  {{ 'indexer'   if inventory_hostname in groups['wazuh_indexer']   | default([])
+     else 'server'    if inventory_hostname in groups['wazuh_manager']   | default([])
+     else 'dashboard' if inventory_hostname in groups['wazuh_dashboard'] | default([])
+     else 'none' }}

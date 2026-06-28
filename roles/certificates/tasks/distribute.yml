@@ -1,0 +1,44 @@
+---
+# roles/certificates/tasks/distribute.yml  (runs on each consumer node)
+# Pulls this node's certs from the CA host and lands them in the component dir.
+
+- name: Resolve destination dir and owner for this component
+  ansible.builtin.set_fact:
+    node_cert_dir: "{{ cert_component_dirs[node_component] }}"
+    node_cert_owner: "{{ cert_component_owners[node_component] }}"
+
+- name: Ensure the certificates directory exists
+  ansible.builtin.file:
+    path: "{{ node_cert_dir }}"
+    state: directory
+    owner: "{{ node_cert_owner }}"
+    group: "{{ node_cert_owner }}"
+    mode: "0500"
+
+- name: Build the list of certs this node needs
+  ansible.builtin.set_fact:
+    node_cert_files: >-
+      {{ ['root-ca.pem',
+          inventory_hostname ~ '.pem',
+          inventory_hostname ~ '-key.pem']
+         + (['admin.pem', 'admin-key.pem']
+            if inventory_hostname == certs_generate_on else []) }}
+
+- name: Read each certificate from the CA host
+  ansible.builtin.slurp:
+    src: "{{ certs_output_dir }}/{{ item }}"
+  delegate_to: "{{ groups['wazuh_ca'][0] }}"
+  loop: "{{ node_cert_files }}"
+  register: ca_cert_blobs
+
+- name: Write certificates onto this node
+  ansible.builtin.copy:
+    dest: "{{ node_cert_dir }}/{{ item.item }}"
+    content: "{{ item.content | b64decode }}"
+    owner: "{{ node_cert_owner }}"
+    group: "{{ node_cert_owner }}"
+    mode: "{{ '0400' if item.item.endswith('-key.pem') else '0444' }}"
+  loop: "{{ ca_cert_blobs.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  no_log: true

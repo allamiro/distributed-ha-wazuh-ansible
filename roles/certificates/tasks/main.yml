@@ -1,0 +1,19 @@
+---
+# roles/certificates/tasks/main.yml
+#
+# Runs in a single play across the CA host + all consumer nodes. generate.yml
+# is guarded to the CA only; because Ansible finishes each task across all hosts
+# before the next, the CA has produced every certificate by the time the
+# consumer nodes reach distribute.yml.
+
+- name: Skip certificate management when SSL is disabled
+  ansible.builtin.meta: end_host
+  when: not (enable_ssl | bool)
+
+- name: Generate the CA and sign all node certificates (CA host only)
+  ansible.builtin.import_tasks: generate.yml
+  when: inventory_hostname in groups['wazuh_ca'] | default([])
+
+- name: Distribute certificates to this node
+  ansible.builtin.import_tasks: distribute.yml
+  when: node_component != 'none'

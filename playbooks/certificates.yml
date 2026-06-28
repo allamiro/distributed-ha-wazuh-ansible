@@ -1,8 +1,11 @@
 ---
-# Generate the CA and per-node certs on one bootstrap host, then
-# distribute them to every node that needs TLS.
+# Generate the root CA on the dedicated CA host, sign every node certificate,
+# and distribute each node its certs. Skipped entirely when enable_ssl is false.
+#
+# CA host + all consumers are in ONE play so task ordering guarantees the CA
+# has finished generating before any consumer pulls its certs.
 - name: Generate and distribute Wazuh certificates
-  hosts: wazuh_indexer:wazuh_manager:wazuh_dashboard
+  hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard
   become: true
   roles:
     - role: common
