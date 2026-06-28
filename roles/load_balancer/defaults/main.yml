@@ -4,6 +4,9 @@
 haproxy_package: haproxy
 haproxy_service: haproxy
 haproxy_config: /etc/haproxy/haproxy.cfg
+# Runtime API socket. Default to the package's chroot/home dir, which already
+# has the right SELinux label — avoids creating /run/haproxy by hand.
+haproxy_stats_socket: /var/lib/haproxy/stats
 
 # Stats page
 haproxy_stats_enabled: true
