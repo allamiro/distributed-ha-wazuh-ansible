@@ -281,6 +281,28 @@ No CA, no vault — `enable_ssl: false`, so the certificates role is skipped.
 ansible-playbook -i inventories/test-nossl/hosts.yml site.yml -u <USER> -k -K
 ```
 
+### Uninstall / start clean
+
+To completely remove the stack (packages + all data/config) and redeploy fresh —
+works for **both** the SSL and no-SSL builds, since it tears down whatever is
+installed. It's **destructive** and requires explicit confirmation:
+
+```bash
+ansible-playbook -i <inventory>/hosts.yml playbooks/uninstall.yml \
+  -u <USER> -k -K -e confirm=yes
+```
+
+It removes, in reverse order: dashboards → HAProxy/keepalived → managers+Filebeat
+→ indexers → CA workdir → agents (purging `/var/ossec`, `/etc/wazuh-*`,
+`/var/lib/wazuh-*`, `/usr/share/wazuh-*`, `/etc/filebeat`, cert dirs, systemd
+drop-ins, etc.). Add `-e remove_repo=yes` to also drop the Wazuh yum repo + GPG
+key. Without `-e confirm=yes` it refuses to run.
+
+Then redeploy clean:
+```bash
+ansible-playbook -i <inventory>/hosts.yml site.yml -u <USER> -k -K
+```
+
 ### Hostnames & networking
 
 The `common` role (run by `bootstrap.yml`) is the single source of truth for host

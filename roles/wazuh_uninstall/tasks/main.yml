@@ -1,0 +1,34 @@
+---
+# roles/wazuh_uninstall/tasks/main.yml
+# Reusable component teardown. Caller passes:
+#   uninstall_services : list of systemd units to stop+disable (may not exist)
+#   uninstall_packages : list of packages to remove
+#   uninstall_paths    : list of files/dirs to delete (data + config)
+# Safe to run whether the component was installed in SSL or no-SSL mode, and
+# safe to run repeatedly (everything is "absent"/best-effort).
+
+- name: Stop and disable services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ uninstall_services | default([]) }}"
+  failed_when: false          # unit may not be present
+  register: _uninstall_stop
+
+- name: Remove packages
+  ansible.builtin.dnf:
+    name: "{{ uninstall_packages | default([]) }}"
+    state: absent
+    autoremove: true
+  when: (uninstall_packages | default([])) | length > 0
+
+- name: Purge data and configuration paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ uninstall_paths | default([]) }}"
+
+- name: Reload systemd (drop-ins may have been removed)
+  ansible.builtin.systemd:
+    daemon_reload: true

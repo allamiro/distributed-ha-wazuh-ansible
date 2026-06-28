@@ -1,0 +1,125 @@
+---
+# =============================================================================
+# DESTRUCTIVE: completely removes the Wazuh stack from the targeted inventory
+# (packages + all data/config) so you can redeploy clean. Works for BOTH the
+# SSL and no-SSL builds — it tears down whatever is installed.
+#
+#   ansible-playbook -i inventories/test-nossl/hosts.yml playbooks/uninstall.yml \
+#       -u <USER> -k -K -e confirm=yes
+#
+# Then redeploy with:  ansible-playbook -i <inventory> site.yml -u <USER> -k -K
+#
+# Optional: also drop the Wazuh yum repo + GPG key with -e remove_repo=yes
+# =============================================================================
+
+- name: Confirm destructive uninstall
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm | default('') | string == 'yes'
+        fail_msg: >-
+          Refusing to run. This DELETES all Wazuh data on the targeted hosts.
+          Re-run with  -e confirm=yes  to proceed.
+        success_msg: "Confirmed — proceeding with uninstall."
+        quiet: true
+
+# Reverse of install order: dashboards -> LB -> managers -> indexers -> CA -> agents
+
+- name: Uninstall Wazuh dashboards
+  hosts: wazuh_dashboard
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: [wazuh-dashboard]
+        uninstall_packages: [wazuh-dashboard]
+        uninstall_paths:
+          - /etc/wazuh-dashboard
+          - /usr/share/wazuh-dashboard
+          - /var/lib/wazuh-dashboard
+          - /run/wazuh-dashboard
+
+- name: Uninstall load balancers (HAProxy + keepalived)
+  hosts: load_balancer
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: [haproxy, keepalived]
+        uninstall_packages: [haproxy, keepalived]
+        uninstall_paths:
+          - /etc/haproxy
+          - /etc/keepalived
+          - /etc/tmpfiles.d/haproxy.conf
+
+- name: Uninstall Wazuh server (manager + Filebeat)
+  hosts: wazuh_manager
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: [wazuh-manager, filebeat]
+        uninstall_packages: [wazuh-manager, filebeat]
+        uninstall_paths:
+          - /var/ossec
+          - /etc/filebeat
+          - /var/lib/filebeat
+          - /usr/share/filebeat
+
+- name: Uninstall Wazuh indexer
+  hosts: wazuh_indexer
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: [wazuh-indexer]
+        uninstall_packages: [wazuh-indexer]
+        uninstall_paths:
+          - /etc/wazuh-indexer
+          - /var/lib/wazuh-indexer
+          - /var/log/wazuh-indexer
+          - /usr/share/wazuh-indexer
+          - /etc/systemd/system/wazuh-indexer.service.d
+
+- name: Clean the CA host
+  hosts: wazuh_ca
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: []
+        uninstall_packages: []
+        uninstall_paths:
+          - "{{ certs_workdir | default('/root/wazuh-certs') }}"
+
+- name: Uninstall Wazuh agents
+  hosts: wazuh_agents
+  become: true
+  roles:
+    - role: wazuh_uninstall
+      vars:
+        uninstall_services: [wazuh-agent]
+        uninstall_packages: [wazuh-agent]
+        uninstall_paths:
+          - /var/ossec
+
+# Optional: remove the Wazuh package repo + GPG key (only with -e remove_repo=yes)
+- name: Remove the Wazuh repository (optional)
+  hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard:load_balancer:wazuh_agents
+  become: true
+  tasks:
+    - name: Remove Wazuh yum repo file
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/wazuh.repo
+        state: absent
+      when: remove_repo | default(false) | bool
+
+    - name: Remove the Wazuh GPG key
+      ansible.builtin.rpm_key:
+        key: "{{ wazuh_repo_gpgkey | default('https://packages.wazuh.com/key/GPG-KEY-WAZUH') }}"
+        state: absent
+      when: remove_repo | default(false) | bool
+      failed_when: false
