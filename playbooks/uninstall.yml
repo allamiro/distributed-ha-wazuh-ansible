@@ -1,15 +1,16 @@
 ---
 # =============================================================================
-# DESTRUCTIVE: completely removes the Wazuh stack from the targeted inventory
-# (packages + all data/config) so you can redeploy clean. Works for BOTH the
-# SSL and no-SSL builds — it tears down whatever is installed.
+# DESTRUCTIVE: fully reverts the deployment from the targeted inventory —
+# packages, data/config, firewall ports, SELinux booleans/port labels, sysctls,
+# the managed /etc/hosts block, and NetworkManager DNS. Works for BOTH the SSL
+# and no-SSL builds. Lets you redeploy clean.
 #
 #   ansible-playbook -i inventories/test-nossl/hosts.yml playbooks/uninstall.yml \
 #       -u <USER> -k -K -e confirm=yes
 #
-# Then redeploy with:  ansible-playbook -i <inventory> site.yml -u <USER> -k -K
-#
-# Optional: also drop the Wazuh yum repo + GPG key with -e remove_repo=yes
+# Optional: -e remove_repo=yes also drops the Wazuh repo + GPG key.
+# Note: installed base utilities (chrony, firewalld, python3, ...) and the host
+# hostname are intentionally left in place (reverting them has no safe target).
 # =============================================================================
 
 - name: Confirm destructive uninstall
@@ -21,8 +22,8 @@
       ansible.builtin.assert:
         that: confirm | default('') | string == 'yes'
         fail_msg: >-
-          Refusing to run. This DELETES all Wazuh data on the targeted hosts.
-          Re-run with  -e confirm=yes  to proceed.
+          Refusing to run. This DELETES all Wazuh data and reverts host changes
+          on the targeted hosts. Re-run with  -e confirm=yes  to proceed.
         success_msg: "Confirmed — proceeding with uninstall."
         quiet: true
 
@@ -36,6 +37,7 @@
       vars:
         uninstall_services: [wazuh-dashboard]
         uninstall_packages: [wazuh-dashboard]
+        uninstall_firewall_ports: ["80/tcp", "443/tcp"]
         uninstall_paths:
           - /etc/wazuh-dashboard
           - /usr/share/wazuh-dashboard
@@ -50,6 +52,12 @@
       vars:
         uninstall_services: [haproxy, keepalived]
         uninstall_packages: [haproxy, keepalived]
+        uninstall_firewall_ports: ["80/tcp", "443/tcp", "8404/tcp"]
+        uninstall_firewall_rich_rules:
+          - 'rule protocol value="vrrp" accept'
+        uninstall_sebooleans: [haproxy_connect_any]
+        uninstall_seports:
+          - { port: 8404, proto: tcp, setype: http_port_t }
         uninstall_paths:
           - /etc/haproxy
           - /etc/keepalived
@@ -63,6 +71,7 @@
       vars:
         uninstall_services: [wazuh-manager, filebeat]
         uninstall_packages: [wazuh-manager, filebeat]
+        uninstall_firewall_ports: ["1514/tcp", "1515/tcp", "1516/tcp", "55000/tcp"]
         uninstall_paths:
           - /var/ossec
           - /etc/filebeat
@@ -77,6 +86,8 @@
       vars:
         uninstall_services: [wazuh-indexer]
         uninstall_packages: [wazuh-indexer]
+        uninstall_firewall_ports: ["9200/tcp", "9300/tcp"]
+        uninstall_sysctls: [vm.max_map_count]
         uninstall_paths:
           - /etc/wazuh-indexer
           - /var/lib/wazuh-indexer
@@ -90,8 +101,6 @@
   roles:
     - role: wazuh_uninstall
       vars:
-        uninstall_services: []
-        uninstall_packages: []
         uninstall_paths:
           - "{{ certs_workdir | default('/root/wazuh-certs') }}"
 
@@ -106,7 +115,45 @@
         uninstall_paths:
           - /var/ossec
 
-# Optional: remove the Wazuh package repo + GPG key (only with -e remove_repo=yes)
+# --- Revert the common-role host changes on every node ---
+- name: Revert common host changes (/etc/hosts block, DNS)
+  hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard:load_balancer:wazuh_agents
+  become: true
+  tasks:
+    - name: Remove the managed /etc/hosts block
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED — Wazuh cluster peers"
+        state: absent
+      failed_when: false
+
+    - name: Find the primary NetworkManager connection
+      ansible.builtin.command: "nmcli -t -g GENERAL.CONNECTION device show {{ ansible_facts['default_ipv4']['interface'] }}"
+      register: _nm_conn
+      changed_when: false
+      failed_when: false
+      when: ansible_facts['default_ipv4']['interface'] is defined
+
+    - name: Revert DNS overrides on the primary connection
+      ansible.builtin.command: >-
+        nmcli connection modify "{{ _nm_conn.stdout | trim }}"
+        ipv4.dns "" ipv4.dns-search "" ipv4.ignore-auto-dns no
+      register: _nm_revert
+      changed_when: true
+      failed_when: false
+      when:
+        - _nm_conn.stdout is defined
+        - _nm_conn.stdout | trim | length > 0
+
+    - name: Reapply the connection so DNS reverts take effect
+      ansible.builtin.command: "nmcli connection up \"{{ _nm_conn.stdout | trim }}\""
+      changed_when: true
+      failed_when: false
+      when:
+        - _nm_revert is defined
+        - _nm_revert is changed
+
+# --- Optional: remove the Wazuh repo + GPG key (only with -e remove_repo=yes) ---
 - name: Remove the Wazuh repository (optional)
   hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard:load_balancer:wazuh_agents
   become: true

@@ -292,11 +292,27 @@ ansible-playbook -i <inventory>/hosts.yml playbooks/uninstall.yml \
   -u <USER> -k -K -e confirm=yes
 ```
 
-It removes, in reverse order: dashboards → HAProxy/keepalived → managers+Filebeat
-→ indexers → CA workdir → agents (purging `/var/ossec`, `/etc/wazuh-*`,
-`/var/lib/wazuh-*`, `/usr/share/wazuh-*`, `/etc/filebeat`, cert dirs, systemd
-drop-ins, etc.). Add `-e remove_repo=yes` to also drop the Wazuh yum repo + GPG
-key. Without `-e confirm=yes` it refuses to run.
+It reverts, in reverse order (dashboards → HAProxy/keepalived → managers+Filebeat
+→ indexers → CA → agents), **everything the deployment changed**:
+
+- **Packages**: wazuh-dashboard, haproxy, keepalived, wazuh-manager, filebeat,
+  wazuh-indexer, wazuh-agent
+- **Data/config**: `/var/ossec`, `/etc/wazuh-*`, `/var/lib/wazuh-*`,
+  `/usr/share/wazuh-*`, `/etc/filebeat`, cert dirs, systemd drop-ins, CA workdir
+- **Firewall**: closes every port opened (9200/9300, 1514/1515/1516/55000,
+  80/443, 8404) and the keepalived VRRP rich rule
+- **SELinux**: turns off `haproxy_connect_any` and removes the 8404 `http_port_t`
+  label
+- **sysctl**: removes `vm.max_map_count`
+- **common**: removes the managed `/etc/hosts` block and reverts the
+  NetworkManager DNS/search overrides
+
+Add `-e remove_repo=yes` to also drop the Wazuh yum repo + GPG key. Without
+`-e confirm=yes` it refuses to run.
+
+> Intentionally **left in place**: base utilities installed by `common`
+> (chrony, firewalld, python3, …) and the host's hostname — reverting those has
+> no safe target and they don't affect a redeploy.
 
 Then redeploy clean:
 ```bash

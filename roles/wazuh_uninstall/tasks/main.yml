@@ -1,11 +1,16 @@
 ---
 # roles/wazuh_uninstall/tasks/main.yml
-# Reusable component teardown. Caller passes:
-#   uninstall_services : list of systemd units to stop+disable (may not exist)
-#   uninstall_packages : list of packages to remove
-#   uninstall_paths    : list of files/dirs to delete (data + config)
-# Safe to run whether the component was installed in SSL or no-SSL mode, and
-# safe to run repeatedly (everything is "absent"/best-effort).
+# Reusable component teardown that reverts what the deployment changed. Caller
+# passes any of:
+#   uninstall_services           : systemd units to stop+disable
+#   uninstall_packages           : packages to remove
+#   uninstall_paths              : files/dirs to delete (data + config)
+#   uninstall_firewall_ports     : ["9200/tcp", ...] to close in firewalld
+#   uninstall_firewall_rich_rules: ['rule protocol value="vrrp" accept', ...]
+#   uninstall_sebooleans         : ["haproxy_connect_any", ...] to set off
+#   uninstall_seports            : [{port: 8404, proto: tcp, setype: http_port_t}]
+#   uninstall_sysctls            : ["vm.max_map_count", ...] to remove
+# Everything is best-effort + idempotent, so it's safe to re-run.
 
 - name: Stop and disable services
   ansible.builtin.systemd:
@@ -13,9 +18,57 @@
     state: stopped
     enabled: false
   loop: "{{ uninstall_services | default([]) }}"
-  failed_when: false          # unit may not be present
-  register: _uninstall_stop
+  failed_when: false
 
+# --- Revert firewall changes ---
+- name: Close firewall ports opened by the deployment
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ uninstall_firewall_ports | default([]) }}"
+  failed_when: false
+
+- name: Remove firewall rich rules opened by the deployment
+  ansible.posix.firewalld:
+    rich_rule: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ uninstall_firewall_rich_rules | default([]) }}"
+  failed_when: false
+
+# --- Revert SELinux changes ---
+- name: Revert SELinux booleans
+  ansible.posix.seboolean:
+    name: "{{ item }}"
+    state: false
+    persistent: true
+  loop: "{{ uninstall_sebooleans | default([]) }}"
+  failed_when: false
+  when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+- name: Revert SELinux port labels
+  community.general.seport:
+    ports: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    setype: "{{ item.setype | default('http_port_t') }}"
+    state: absent
+  loop: "{{ uninstall_seports | default([]) }}"
+  failed_when: false
+  when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+# --- Revert sysctl changes ---
+- name: Remove sysctl settings applied by the deployment
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    state: absent
+    reload: true
+  loop: "{{ uninstall_sysctls | default([]) }}"
+  failed_when: false
+
+# --- Remove packages + data ---
 - name: Remove packages
   ansible.builtin.dnf:
     name: "{{ uninstall_packages | default([]) }}"
