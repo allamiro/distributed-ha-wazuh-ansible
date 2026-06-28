@@ -18,6 +18,7 @@ common_packages:
   - tar
   - policycoreutils-python-utils   # semanage, for later SELinux rules
   - python3
+  - python3-cryptography           # community.crypto (CA signs the HAProxy cert)
   - chrony
   - firewalld
 

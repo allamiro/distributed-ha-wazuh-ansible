@@ -1,0 +1,79 @@
+---
+# roles/load_balancer/tasks/tls_cert.yml
+# Issues an HAProxy server certificate from the LOCAL CA (wazuh-ca) and installs
+# the combined cert+key PEM on each LB. No Let's Encrypt. The cert is signed by
+# the same root CA the certificates role builds, so clients that trust root-ca
+# trust the dashboard VIP too.
+
+- name: Check the local root CA exists on the CA host
+  ansible.builtin.stat:
+    path: "{{ certs_output_dir }}/{{ certs_ca_cert_file }}"
+  delegate_to: "{{ ca_host }}"
+  run_once: true
+  register: lb_root_ca
+
+- name: Fail clearly if the local CA has not been built yet
+  ansible.builtin.fail:
+    msg: >-
+      Local root CA not found on {{ ca_host }}
+      ({{ certs_output_dir }}/{{ certs_ca_cert_file }}).
+      Run playbooks/certificates.yml first to build the CA.
+  run_once: true
+  when: not lb_root_ca.stat.exists
+
+- name: Generate the HAProxy private key on the CA host
+  community.crypto.openssl_privatekey:
+    path: "{{ certs_output_dir }}/haproxy-key.pem"
+  delegate_to: "{{ ca_host }}"
+  run_once: true
+
+- name: Create the HAProxy CSR on the CA host
+  community.crypto.openssl_csr:
+    path: "{{ certs_output_dir }}/haproxy.csr"
+    privatekey_path: "{{ certs_output_dir }}/haproxy-key.pem"
+    common_name: "{{ wazuh_dashboard_fqdn }}"
+    subject_alt_name: "{{ lb_cert_san }}"
+  delegate_to: "{{ ca_host }}"
+  run_once: true
+
+- name: Sign the HAProxy certificate with the local CA
+  community.crypto.x509_certificate:
+    path: "{{ certs_output_dir }}/haproxy.pem"
+    csr_path: "{{ certs_output_dir }}/haproxy.csr"
+    provider: ownca
+    ownca_path: "{{ certs_output_dir }}/{{ certs_ca_cert_file }}"
+    ownca_privatekey_path: "{{ certs_output_dir }}/{{ certs_ca_key_file }}"
+    ownca_not_after: "+825d"
+  delegate_to: "{{ ca_host }}"
+  run_once: true
+
+- name: Assemble the combined cert+key PEM on the CA host
+  ansible.builtin.shell:
+    cmd: "cat '{{ certs_output_dir }}/haproxy.pem' '{{ certs_output_dir }}/haproxy-key.pem' > '{{ certs_output_dir }}/haproxy-combined.pem'"
+  delegate_to: "{{ ca_host }}"
+  run_once: true
+  changed_when: true
+
+- name: Ensure the HAProxy certs directory exists
+  ansible.builtin.file:
+    path: "{{ lb_tls_cert | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Read the combined HAProxy PEM from the CA host
+  ansible.builtin.slurp:
+    src: "{{ certs_output_dir }}/haproxy-combined.pem"
+  delegate_to: "{{ ca_host }}"
+  register: lb_combined_pem
+
+- name: Install the combined HAProxy PEM
+  ansible.builtin.copy:
+    dest: "{{ lb_tls_cert }}"
+    content: "{{ lb_combined_pem.content | b64decode }}"
+    owner: root
+    group: root
+    mode: "0400"
+  no_log: true
+  notify: Reload haproxy

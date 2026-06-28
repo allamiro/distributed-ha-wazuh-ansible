@@ -1,0 +1,12 @@
+---
+# roles/load_balancer/handlers/main.yml
+
+- name: Reload haproxy
+  ansible.builtin.service:
+    name: "{{ haproxy_service }}"
+    state: reloaded
+
+- name: Restart keepalived
+  ansible.builtin.service:
+    name: keepalived
+    state: restarted

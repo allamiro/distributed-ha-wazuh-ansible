@@ -1,0 +1,21 @@
+---
+# roles/load_balancer/vars/main.yml
+# Backend pools derived from the inventory.
+
+lb_dashboard_backends: "{{ groups['wazuh_dashboard'] | default([]) }}"
+lb_manager_backends: "{{ groups['wazuh_manager'] | default([]) }}"
+lb_manager_master: "{{ groups['wazuh_manager_master'] | default([]) }}"
+
+# Ports HAProxy listens on (opened in firewalld).
+lb_firewall_ports: >-
+  {{ [ (lb_dashboard_bind_port | string) ~ '/tcp' ]
+     + ([ (haproxy_stats_port | string) ~ '/tcp' ] if haproxy_stats_enabled else [])
+     + ([ (lb_agent_port | string) ~ '/tcp',
+          (lb_enroll_port | string) ~ '/tcp' ] if lb_balance_agents else []) }}
+
+# SANs for the HAProxy cert issued by the local CA (TLS-termination path).
+# The dashboard FQDN + the VIP + every LB node IP.
+lb_cert_san: >-
+  {{ ( ['DNS:' ~ wazuh_dashboard_fqdn, 'IP:' ~ keepalived_vip]
+       + (groups['load_balancer'] | default([]) | map('extract', hostvars, 'ansible_host')
+          | map('regex_replace', '^(.*)$', 'IP:\1') | list) ) | unique }}

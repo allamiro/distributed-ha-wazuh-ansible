@@ -1,0 +1,49 @@
+---
+# roles/load_balancer/tasks/main.yml
+
+- name: Install HAProxy
+  ansible.builtin.dnf:
+    name: "{{ haproxy_package }}"
+    state: present
+
+# HAProxy proxies to arbitrary backend ports (443, 1514, …). On Rocky 9 with
+# SELinux enforcing, this boolean is required or connections are denied.
+- name: Allow HAProxy to connect to any backend port (SELinux)
+  ansible.posix.seboolean:
+    name: haproxy_connect_any
+    state: true
+    persistent: true
+  when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+- name: Issue the HAProxy TLS certificate from the local CA
+  ansible.builtin.import_tasks: tls_cert.yml
+  when: lb_terminate_tls | bool
+
+- name: Deploy haproxy.cfg (validated before it is written)
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ haproxy_config }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "haproxy -c -f %s"
+  notify: Reload haproxy
+
+- name: Open HAProxy firewall ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ lb_firewall_ports }}"
+  when: common_manage_firewall | default(true) | bool
+
+- name: Enable and start HAProxy
+  ansible.builtin.service:
+    name: "{{ haproxy_service }}"
+    state: started
+    enabled: true
+
+- name: Configure keepalived VIP
+  ansible.builtin.import_tasks: keepalived.yml
+  when: lb_keepalived_enabled | bool

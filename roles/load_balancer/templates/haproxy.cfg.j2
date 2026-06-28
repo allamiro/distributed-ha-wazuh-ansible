@@ -1,0 +1,117 @@
+# {{ ansible_managed }}
+# HA access layer for the Wazuh dashboards (and optionally agent traffic).
+
+#---------------------------------------------------------------------
+# Global: process-wide settings. One per file; rarely needs tuning.
+#---------------------------------------------------------------------
+global
+    log         /dev/log local0
+    chroot      /var/lib/haproxy
+    user        haproxy
+    group       haproxy
+    daemon
+    maxconn     20000
+    # Runtime API socket — lets you inspect/drain servers without a restart
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+{% if lb_terminate_tls %}
+    # Modern TLS only (used when HAProxy terminates SSL)
+    ssl-default-bind-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    tune.ssl.default-dh-param 2048
+{% endif %}
+
+#---------------------------------------------------------------------
+# Defaults: inherited by every section below.
+#---------------------------------------------------------------------
+defaults
+    log         global
+    option      dontlognull
+    retries     3
+    option      redispatch
+    timeout     connect 5s
+    timeout     client  1h
+    timeout     server  1h
+    timeout     http-request 10s
+
+{% if haproxy_stats_enabled %}
+#---------------------------------------------------------------------
+# Stats page (listen = frontend + backend in one block).
+#   http://<lb>:{{ haproxy_stats_port }}/   (auth required)
+#---------------------------------------------------------------------
+listen stats
+    mode http
+    bind *:{{ haproxy_stats_port }}
+    stats enable
+    stats uri /
+    stats refresh 10s
+    stats auth {{ haproxy_stats_user }}:{{ haproxy_stats_password }}
+{% endif %}
+
+#---------------------------------------------------------------------
+# Wazuh dashboard frontend -> dashboard pool
+#---------------------------------------------------------------------
+{% if lb_terminate_tls %}
+# TLS terminated here, re-encrypted to the dashboards (HTTP-aware balancing).
+frontend dashboard_fe
+    mode http
+    bind *:{{ lb_dashboard_bind_port }} ssl crt {{ lb_tls_cert }}
+    option forwardfor
+    default_backend dashboard_be
+
+backend dashboard_be
+    mode http
+    balance roundrobin
+    option httpchk GET /
+    http-check expect status 200,302
+{% for host in lb_dashboard_backends %}
+    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_dashboard_backend_port }} ssl verify none check
+{% endfor %}
+{% else %}
+# SSL passthrough: dashboards keep their own certs, end-to-end TLS preserved.
+# balance source = sticky by client IP so a session stays on one dashboard.
+frontend dashboard_fe
+    mode tcp
+    option tcplog
+    bind *:{{ lb_dashboard_bind_port }}
+    default_backend dashboard_be
+
+backend dashboard_be
+    mode tcp
+    balance source
+{% for host in lb_dashboard_backends %}
+    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_dashboard_backend_port }} check
+{% endfor %}
+{% endif %}
+
+{% if lb_balance_agents %}
+#---------------------------------------------------------------------
+# Wazuh agent connection (events) -> all managers (TCP, sticky by IP)
+#---------------------------------------------------------------------
+frontend agent_fe
+    mode tcp
+    option tcplog
+    bind *:{{ lb_agent_port }}
+    default_backend agent_be
+
+backend agent_be
+    mode tcp
+    balance source
+{% for host in lb_manager_backends %}
+    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_agent_port }} check
+{% endfor %}
+
+#---------------------------------------------------------------------
+# Wazuh agent enrollment (authd) -> master only
+#---------------------------------------------------------------------
+frontend enroll_fe
+    mode tcp
+    bind *:{{ lb_enroll_port }}
+    default_backend enroll_be
+
+backend enroll_be
+    mode tcp
+{% for host in lb_manager_master %}
+    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_enroll_port }} check
+{% endfor %}
+{% endif %}

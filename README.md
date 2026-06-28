@@ -102,6 +102,29 @@ alerts template + module and includes the `rseq` seccomp allow needed on Rocky 9
 Firewalld ports are opened per role: indexer `9200/9300`, manager
 `1514/1515/1516/55000`, dashboard `443`.
 
+## Load balancing (HAProxy)
+
+The `load_balancer` role fronts the dashboards as the HA access layer on
+`https://siem.local.domain`:
+
+- **Default — SSL passthrough** (`mode tcp`): dashboards keep their own certs,
+  TLS stays end-to-end. `balance source` keeps a user pinned to one dashboard
+  (session stickiness). Health checks drop unresponsive backends.
+- **Optional — TLS termination** (`lb_terminate_tls: true`): HAProxy terminates
+  TLS with a certificate **issued by the local CA (`wazuh-ca`)** — no Let's
+  Encrypt. The cert is signed by the same root CA the certificates role builds
+  (SANs: `siem.local.domain`, the VIP, and each LB IP) and re-encrypts to the
+  dashboards. If the CA hasn't been built yet, the role stops and tells you to
+  run `playbooks/certificates.yml` first.
+- **Stats**: `http://<lb>:8404/` (auth from vault), backed by the Runtime API socket.
+- **Optional agent balancing** (`lb_balance_agents: true`): TCP balance agent
+  events (1514) across all managers and enrollment (1515) to the master.
+- **VIP HA**: with a second LB host, `keepalived` floats the VIP via VRRP
+  (elect-by-priority, no split-brain on startup).
+
+SELinux: the role sets `haproxy_connect_any` so HAProxy can reach backend ports
+on Rocky 9. The config is validated (`haproxy -c -f`) before it is written.
+
 ## Scaling the deployment
 
 Every tier has commented **expansion slots** in

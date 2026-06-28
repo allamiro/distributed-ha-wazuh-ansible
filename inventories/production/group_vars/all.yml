@@ -33,6 +33,11 @@ manager_cluster_key: "{{ vault_manager_cluster_key }}"   # define in vault
 manager_cluster_port: 1516
 manager_agent_port: 1514
 
+# Load balancer
+# false = HAProxy SSL passthrough (dashboards keep their certs)
+# true  = HAProxy terminates TLS with a cert issued by the local CA (wazuh-ca)
+lb_terminate_tls: false
+
 # Certificates / PKI
 enable_ssl: true
 certs_dir: /etc/wazuh-certificates

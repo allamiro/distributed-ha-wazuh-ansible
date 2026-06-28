@@ -1,0 +1,41 @@
+---
+# roles/load_balancer/defaults/main.yml
+
+haproxy_package: haproxy
+haproxy_service: haproxy
+haproxy_config: /etc/haproxy/haproxy.cfg
+
+# Stats page
+haproxy_stats_enabled: true
+haproxy_stats_port: 8404
+haproxy_stats_user: "admin"
+haproxy_stats_password: "{{ vault_haproxy_stats_password | default('admin') }}"
+
+# --- Dashboard frontend ---
+lb_dashboard_bind_port: 443
+lb_dashboard_backend_port: "{{ dashboard_port | default(443) }}"
+# false  -> mode tcp, SSL passthrough (dashboards keep their own certs)  [default]
+# true   -> HAProxy terminates TLS with a cert issued by the LOCAL CA (wazuh-ca)
+#           and re-encrypts to the backends. No Let's Encrypt.
+lb_terminate_tls: false
+lb_tls_cert: /etc/haproxy/certs/siem.pem   # combined cert+key PEM (HAProxy `crt`)
+
+# Local CA file names inside the certs tool output dir (on the CA host).
+# wazuh-certs-tool produces root-ca.pem + root-ca.key.
+certs_ca_cert_file: root-ca.pem
+certs_ca_key_file: root-ca.key
+
+# --- Optional: balance Wazuh agent traffic across managers ---
+# The reference architecture sends agents straight to the server cluster, so
+# this is OFF by default. Enable to put agents behind the LB too.
+lb_balance_agents: false
+lb_agent_port: 1514     # agent connection (events)
+lb_enroll_port: 1515    # agent enrollment (authd) -> master only
+
+# --- keepalived VIP (only meaningful with 2+ load balancers) ---
+lb_keepalived_enabled: "{{ (groups['load_balancer'] | default([]) | length) > 1 }}"
+keepalived_vip: "{{ wazuh_vip }}"
+keepalived_interface: "{{ ansible_facts['default_ipv4']['interface'] | default('eth0') }}"
+keepalived_router_id: 51
+keepalived_priority: 100
+keepalived_auth_pass: "{{ vault_keepalived_auth_pass | default('wazuhvrrp') }}"

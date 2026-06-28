@@ -1,0 +1,28 @@
+# {{ ansible_managed }}
+# VRRP: the LB with the highest priority owns {{ keepalived_vip }}.
+# All nodes start as BACKUP and elect by priority — avoids a split-brain
+# double-MASTER on startup.
+
+vrrp_script chk_haproxy {
+    script "/usr/bin/pidof haproxy"
+    interval 2
+    weight 2
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface {{ keepalived_interface }}
+    virtual_router_id {{ keepalived_router_id }}
+    priority {{ keepalived_priority | default(100) }}
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+    virtual_ipaddress {
+        {{ keepalived_vip }}
+    }
+    track_script {
+        chk_haproxy
+    }
+}
