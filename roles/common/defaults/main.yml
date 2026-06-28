@@ -25,3 +25,9 @@ common_packages:
   - firewalld
 
 common_timezone: "UTC"
+
+# Wazuh GPG key handling. Default to the vendored local key (roles/common/files/
+# GPG-KEY-WAZUH) so the import needs no internet. Set false to fetch the key from
+# wazuh_repo_gpgkey (URL) instead.
+wazuh_repo_gpgkey_local: true
+wazuh_repo_gpgkey_path: /etc/pki/rpm-gpg/GPG-KEY-WAZUH

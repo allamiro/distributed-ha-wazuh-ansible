@@ -1,18 +1,36 @@
 ---
 # roles/common/tasks/repo.yml
 # Adds the Wazuh YUM repository on Rocky Linux 9.
+# By default the GPG key is imported from the vendored local file
+# (roles/common/files/GPG-KEY-WAZUH) so no internet is needed for the key.
 
-- name: Import the Wazuh GPG key
+- name: Deploy the Wazuh GPG key from the local file
+  ansible.builtin.copy:
+    src: GPG-KEY-WAZUH
+    dest: "{{ wazuh_repo_gpgkey_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: wazuh_repo_gpgkey_local | default(true)
+
+- name: Import the Wazuh GPG key (from the local file)
+  ansible.builtin.rpm_key:
+    key: "{{ wazuh_repo_gpgkey_path }}"
+    state: present
+  when: wazuh_repo_gpgkey_local | default(true)
+
+- name: Import the Wazuh GPG key (from URL — fallback)
   ansible.builtin.rpm_key:
     key: "{{ wazuh_repo_gpgkey }}"
     state: present
+  when: not (wazuh_repo_gpgkey_local | default(true))
 
 - name: Add the Wazuh repository
   ansible.builtin.yum_repository:
     name: wazuh
     description: "Wazuh repository"
     baseurl: "{{ wazuh_repo_baseurl }}/yum/"
-    gpgkey: "{{ wazuh_repo_gpgkey }}"
+    gpgkey: "{{ ('file://' ~ wazuh_repo_gpgkey_path) if wazuh_repo_gpgkey_local | default(true) else wazuh_repo_gpgkey }}"
     gpgcheck: true
     enabled: true
     priority: 1          # per Wazuh EL9 docs
