@@ -10,16 +10,16 @@ manager_node_type: >-
 # Address every node points at to join the cluster (the master)
 manager_master_addr: "{{ hostvars[groups['wazuh_manager_master'][0]].ansible_host }}"
 
-# Filebeat output targets: <indexer_ip>:<port> for every indexer node
+# Filebeat output targets: <indexer_ip>:<port> for every indexer node.
+# Anchor replaces (no \1 backreferences — those are quoting-fragile).
 filebeat_indexer_hosts: >-
   {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
-     | map('regex_replace', '^(.*)$', '\1:' ~ (indexer_http_port | default(9200)))
+     | map('regex_replace', '$', ':' ~ (indexer_http_port | default(9200)))
      | list }}
 
 # Wazuh indexer connector targets: full URLs (scheme depends on http_tls)
 indexer_connector_hosts: >-
   {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
-     | map('regex_replace', '^(.*)$',
-            ('https' if http_tls | default(true) else 'http')
-            ~ '://\1:' ~ (indexer_http_port | default(9200)))
+     | map('regex_replace', '^', ('https://' if http_tls | default(true) else 'http://'))
+     | map('regex_replace', '$', ':' ~ (indexer_http_port | default(9200)))
      | list }}

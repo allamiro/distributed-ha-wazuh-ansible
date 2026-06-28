@@ -44,8 +44,13 @@ Users/Analysts ──> HAProxy (https://siem.local.domain) ──> Dashboard-1 /
 > set on the server by the `common` role during the playbook run.
 
 The `indexer_hot` / `indexer_warm` / `indexer_cold` subgroups all roll up into
-the single `wazuh_indexer` cluster; each sets `node.attr.temp` so Index State
-Management (ISM) can age data hot → warm → cold.
+the single `wazuh_indexer` cluster; each node is tagged with `node.attr.temp`
+(hot/warm/cold). This sets up the **foundation** for tier-based allocation —
+the node attributes ISM/allocation rules key on. Note: the project does **not
+yet create an ISM policy or index templates**, so data is not automatically
+aged hot → warm → cold out of the box. To enable aging you'd add an ISM policy
+(with `allocation` actions on `temp`) and attach it to the Wazuh index
+templates — a good follow-up task.
 
 ### Optional components (defined but commented out in the inventory)
 

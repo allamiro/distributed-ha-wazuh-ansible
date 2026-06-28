@@ -1,8 +1,24 @@
 ---
+# Stage 1: install + configure + start every indexer node. No serial — nodes
+# discover each other via discovery.seed_hosts and form the cluster together
+# (per Wazuh docs: bring all nodes up, THEN initialize security once).
 - name: Deploy Wazuh indexer cluster
   hosts: wazuh_indexer
   become: true
-  serial: 1          # bring up nodes one at a time for a clean cluster form
   roles:
     - role: common
     - role: wazuh_indexer
+
+# Stage 2: initialize the security index ONCE, after the whole cluster is up.
+# Runs only on the bootstrap node, and only when security is enabled.
+- name: Initialize the Wazuh indexer security index (once)
+  hosts: "{{ certs_generate_on | default('indexer-hot-1') }}"
+  become: true
+  tasks:
+    - name: Load security configuration into the cluster
+      ansible.builtin.import_role:
+        name: wazuh_indexer
+        tasks_from: securityadmin
+      when:
+        - enable_ssl | bool
+        - indexer_run_securityadmin | default(true) | bool

@@ -7,8 +7,8 @@ dashboard_scheme: "{{ 'https' if http_tls | default(true) else 'http' }}"
 # Dashboard -> indexer cluster URLs
 dashboard_opensearch_hosts: >-
   {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
-     | map('regex_replace', '^(.*)$',
-            dashboard_scheme ~ '://\1:' ~ (indexer_http_port | default(9200)))
+     | map('regex_replace', '^', dashboard_scheme ~ '://')
+     | map('regex_replace', '$', ':' ~ (indexer_http_port | default(9200)))
      | list }}
 
 # Dashboard app -> Wazuh manager master API

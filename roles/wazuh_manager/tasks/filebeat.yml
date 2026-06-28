@@ -70,6 +70,17 @@
     creates: /var/lib/filebeat/filebeat.keystore
   when: enable_ssl | bool
 
+- name: Track Filebeat keystore credentials (rotation detection)
+  ansible.builtin.copy:
+    dest: /etc/filebeat/.keystore_hash
+    content: "{{ (filebeat_indexer_username ~ ':' ~ filebeat_indexer_password) | hash('sha256') }}"
+    owner: root
+    group: root
+    mode: "0600"
+  register: filebeat_keystore_marker
+  no_log: true
+  when: enable_ssl | bool
+
 - name: Store indexer credentials in the Filebeat keystore
   ansible.builtin.shell:
     cmd: |
@@ -78,8 +89,9 @@
       echo '{{ filebeat_indexer_password }}' | filebeat keystore add password --stdin --force
     executable: /bin/bash
   no_log: true
-  changed_when: false
-  when: enable_ssl | bool
+  when:
+    - enable_ssl | bool
+    - filebeat_keystore_marker is changed
   notify: Restart filebeat
 
 # --- Configuration + service ---

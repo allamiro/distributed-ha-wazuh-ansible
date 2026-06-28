@@ -25,4 +25,4 @@ lb_selinux_ports: >-
 lb_cert_san: >-
   {{ ( ['DNS:' ~ wazuh_dashboard_fqdn, 'IP:' ~ keepalived_vip]
        + (groups['load_balancer'] | default([]) | map('extract', hostvars, 'ansible_host')
-          | map('regex_replace', '^(.*)$', 'IP:\1') | list) ) | unique }}
+          | map('regex_replace', '^', 'IP:') | list) ) | unique }}

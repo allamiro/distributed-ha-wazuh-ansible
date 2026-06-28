@@ -1,7 +1,29 @@
 ---
-# Optional: enroll Wazuh agents on endpoints (separate inventory group).
+# Optional: install + enroll Wazuh agents on endpoints (separate inventory group).
+# Agents register to the manager; in this HA layout point them at the manager
+# master (or a TCP load balancer if you front 1514/1515).
 - name: Deploy Wazuh agents
   hosts: wazuh_agents
   become: true
+  vars:
+    # Where agents enroll/report. Defaults to the manager master's address.
+    agent_manager_host: >-
+      {{ agent_manager_host
+         | default(hostvars[groups['wazuh_manager_master'][0]].ansible_host) }}
+    agent_group: "default"
   roles:
     - role: common
+  tasks:
+    - name: Install the Wazuh agent (auto-enrolls via WAZUH_MANAGER)
+      ansible.builtin.dnf:
+        name: "wazuh-agent{{ ('-' ~ wazuh_version) if wazuh_pin_packages | default(true) else '' }}"
+        state: present
+      environment:
+        WAZUH_MANAGER: "{{ agent_manager_host }}"
+        WAZUH_AGENT_GROUP: "{{ agent_group }}"
+
+    - name: Enable and start the Wazuh agent
+      ansible.builtin.service:
+        name: wazuh-agent
+        state: started
+        enabled: true

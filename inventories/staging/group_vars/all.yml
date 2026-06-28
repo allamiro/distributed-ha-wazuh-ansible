@@ -1,9 +1,22 @@
 ---
+# Shared vars for the staging build (no-SSL single-node-per-tier).
 wazuh_version: "4.9.0"
 wazuh_repo_baseurl: "https://packages.wazuh.com/4.x"
+wazuh_repo_gpgkey: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+
+target_os: "Rocky Linux 9"
 wazuh_cluster_name: "wazuh-staging"
+
+wazuh_vip: "10.10.3.11"
+wazuh_dashboard_fqdn: "siem-staging.local.domain"
+wazuh_dashboard_url: "http://{{ wazuh_dashboard_fqdn }}"
+
+# No TLS / no security (lab) — plain HTTP on 80
+enable_ssl: false
+http_tls: false
+dashboard_port: 80
+lb_dashboard_bind_port: 80
+
 indexer_heap_size: "1g"
 indexer_http_port: 9200
-indexer_transport_port: 9300
-certs_dir: /etc/wazuh-certificates
 certs_generate_on: "stg-indexer-1"

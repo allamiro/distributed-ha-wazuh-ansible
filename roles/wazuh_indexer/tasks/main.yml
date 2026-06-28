@@ -3,7 +3,7 @@
 
 - name: Install the Wazuh indexer package
   ansible.builtin.dnf:
-    name: "{{ indexer_package_name }}"
+    name: "{{ indexer_package_name }}{{ ('-' ~ wazuh_version) if wazuh_pin_packages | default(true) else '' }}"
     state: present
 
 # --- Kernel / system tuning required by OpenSearch ---
@@ -125,10 +125,7 @@
     port: "{{ indexer_http_port }}"
     timeout: 180
 
-# --- One-time security index initialization (bootstrap node only) ---
-- name: Initialize the security index
-  ansible.builtin.import_tasks: securityadmin.yml
-  when:
-    - enable_ssl | bool
-    - indexer_run_securityadmin | bool
-    - inventory_hostname == certs_generate_on
+# NOTE: security index initialization (securityadmin.yml) is intentionally NOT
+# run here. It must run ONCE after ALL indexer nodes are up — see the second
+# play in playbooks/indexer.yml. Running it per-node (especially under serial)
+# would initialize against a partial cluster.

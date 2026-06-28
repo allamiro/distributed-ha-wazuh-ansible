@@ -15,4 +15,5 @@
     gpgkey: "{{ wazuh_repo_gpgkey }}"
     gpgcheck: true
     enabled: true
+    priority: 1          # per Wazuh EL9 docs
     file: wazuh

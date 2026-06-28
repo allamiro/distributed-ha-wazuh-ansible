@@ -13,7 +13,10 @@ indexer_seed_hosts: >-
   {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host') | list }}
 
 # nodes_dn — one cert DN per indexer node (CN = inventory_hostname).
+# Built with ^/$ anchor replaces (prefix + suffix) to avoid \1 backreferences,
+# which are quoting-fragile and can render as control chars.
 indexer_nodes_dn: >-
   {{ groups['wazuh_indexer']
-     | map('regex_replace', '^(.*)$', 'CN=\1,' ~ indexer_cert_dn_suffix)
+     | map('regex_replace', '^', 'CN=')
+     | map('regex_replace', '$', ',' ~ indexer_cert_dn_suffix)
      | list }}

@@ -3,7 +3,7 @@
 
 - name: Install the Wazuh dashboard
   ansible.builtin.dnf:
-    name: "{{ dashboard_package }}"
+    name: "{{ dashboard_package }}{{ ('-' ~ wazuh_version) if wazuh_pin_packages | default(true) else '' }}"
     state: present
 
 # --- Dashboard security plugin must match the security mode (reversible):

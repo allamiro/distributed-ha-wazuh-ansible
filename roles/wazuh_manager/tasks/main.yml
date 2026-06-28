@@ -3,7 +3,7 @@
 
 - name: Install the Wazuh manager
   ansible.builtin.dnf:
-    name: "{{ manager_package }}"
+    name: "{{ manager_package }}{{ ('-' ~ wazuh_version) if wazuh_pin_packages | default(true) else '' }}"
     state: present
 
 - name: Configure the cluster section in ossec.conf
@@ -22,6 +22,19 @@
 
 # The indexer connector authenticates to the indexer with credentials read from
 # the manager keystore (not from ossec.conf). Only needed when TLS/auth is on.
+# Track a hash of the creds so we only (re)write the keystore AND restart when
+# they actually change — fixes rotated creds silently not taking effect.
+- name: Track manager keystore credentials (rotation detection)
+  ansible.builtin.copy:
+    dest: /var/ossec/.indexer_keystore_hash
+    content: "{{ (filebeat_indexer_username ~ ':' ~ filebeat_indexer_password) | hash('sha256') }}"
+    owner: root
+    group: root
+    mode: "0600"
+  register: manager_keystore_marker
+  no_log: true
+  when: enable_ssl | bool
+
 - name: Store indexer credentials in the Wazuh manager keystore
   ansible.builtin.shell:
     cmd: |
@@ -30,8 +43,9 @@
       echo '{{ filebeat_indexer_password }}' | /var/ossec/bin/wazuh-keystore -f indexer -k password
     executable: /bin/bash
   no_log: true
-  changed_when: false
-  when: enable_ssl | bool
+  when:
+    - enable_ssl | bool
+    - manager_keystore_marker is changed
   notify: Restart wazuh-manager
 
 - name: Open Wazuh manager firewall ports

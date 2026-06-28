@@ -15,7 +15,9 @@ common_add_wazuh_repo: true        # add the Wazuh package repo (Rocky 9)
 common_packages:
   - curl
   - ca-certificates
+  - gnupg2
   - tar
+  - dnf-plugins-core         # yum-config-manager / repo priorities on EL9
   - policycoreutils-python-utils   # semanage, for later SELinux rules
   - python3
   - python3-cryptography           # community.crypto (CA signs the HAProxy cert)

@@ -29,3 +29,7 @@ dashboard_api_run_as: false
 
 # HTTP/REST-layer TLS. Falls back to enable_ssl unless overridden.
 http_tls: "{{ enable_ssl | default(true) }}"
+
+# Pin the wazuh-* package to wazuh_version (keeps packages consistent with
+# the version-matched Filebeat template/module). Set false to take latest 4.x.
+wazuh_pin_packages: true
