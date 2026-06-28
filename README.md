@@ -156,7 +156,7 @@ relevant playbook:
 │   │   ├── hosts.yml
 │   │   └── group_vars/         # all / per-tier / vault vars
 │   └── staging/                # single-node-per-tier test topology
-├── playbooks/                  # certificates, indexer, manager, dashboard, lb, agents
+├── playbooks/                  # bootstrap, certificates, indexer, manager, dashboard, lb, agents
 └── roles/
     ├── common/                 # repo, firewall, OS prep (Rocky 9)
     ├── certificates/           # CA + node TLS certs
@@ -166,23 +166,111 @@ relevant playbook:
     └── load_balancer/          # HAProxy + keepalived
 ```
 
-## Quick start
+## Deployment guide
+
+### Prerequisites
+
+- **Targets**: Rocky Linux 9 VMs (today: created/cloned in **Proxmox**), each
+  reachable on the **static IP** assigned in the inventory.
+- **SSH**: an `ansible` user on every host with **passwordless sudo** and your
+  SSH key installed (`ansible_user` / `ansible_ssh_private_key_file` in the
+  inventory).
+- **Control node**: Ansible 2.14+ and Python 3.
+
+> **Hostnames are set by Ansible, from the inventory.** You only need the IPs to
+> be reachable — you do **not** have to pre-set hostnames on the VMs. The
+> bootstrap step names each box `<inventory_hostname>.local.domain` (e.g.
+> `indexer-hot-1.local.domain`) and writes `/etc/hosts` for all peers. See
+> [Hostnames & networking](#hostnames--networking).
+
+### 1. Control node setup
 
 ```bash
-# 1. Install collections
 ansible-galaxy collection install -r requirements.yml
-
-# 2. Create and encrypt secrets
-cp inventories/production/group_vars/vault.yml.example \
-   inventories/production/group_vars/vault.yml
-ansible-vault encrypt inventories/production/group_vars/vault.yml
-
-# 3. Check connectivity
-ansible all -i inventories/production/hosts.yml -m ping
-
-# 4. Deploy the full stack
-ansible-playbook site.yml --ask-vault-pass
 ```
 
-Deploy a single tier with its playbook, e.g.
-`ansible-playbook playbooks/indexer.yml`.
+### 2. Point the inventory at your VMs
+
+Edit [`inventories/production/hosts.yml`](inventories/production/hosts.yml) so
+each `ansible_host` matches the IP you gave the VM in Proxmox. The hostnames
+(the inventory names) are applied to the VMs for you in the next step.
+
+### 3. Create and encrypt secrets
+
+```bash
+cp inventories/production/group_vars/vault.yml.example \
+   inventories/production/group_vars/vault.yml
+# fill in real values, then:
+ansible-vault encrypt inventories/production/group_vars/vault.yml
+```
+
+### 4. Check connectivity
+
+```bash
+ansible all -i inventories/production/hosts.yml -m ping
+```
+
+### 5. Bootstrap — set hostnames, /etc/hosts, DNS, repo
+
+```bash
+ansible-playbook -i inventories/production/hosts.yml playbooks/bootstrap.yml
+```
+
+This names every VM from the inventory and wires DNS/peers. (`site.yml` runs it
+first automatically; you can also run it standalone any time.)
+
+### 6. Deploy the stack
+
+```bash
+# Everything, in order: bootstrap -> CA -> indexer -> manager -> dashboard -> LB
+ansible-playbook -i inventories/production/hosts.yml site.yml --ask-vault-pass
+```
+
+Or one tier at a time:
+
+```bash
+ansible-playbook -i inventories/production/hosts.yml playbooks/certificates.yml --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/indexer.yml
+ansible-playbook -i inventories/production/hosts.yml playbooks/manager.yml --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/dashboard.yml --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/load_balancer.yml --ask-vault-pass
+```
+
+### 7. Verify
+
+```bash
+# hostnames were applied from the inventory
+ansible all -i inventories/production/hosts.yml -a hostname
+
+# indexer cluster is green and all nodes joined
+ansible indexer-hot-1 -i inventories/production/hosts.yml -b \
+  -a "curl -sk -u admin:<pw> https://localhost:9200/_cluster/health?pretty"
+
+# manager cluster nodes
+ansible wazuh_manager_master -i inventories/production/hosts.yml -b \
+  -a "/var/ossec/bin/cluster_control -l"
+```
+
+Then browse to **https://siem.local.domain** (the HAProxy VIP).
+
+### No-SSL test build
+
+```bash
+ansible-playbook -i inventories/test-nossl/hosts.yml site.yml
+```
+
+### Hostnames & networking
+
+The `common` role (run by `bootstrap.yml`) is the single source of truth for host
+identity, all derived from the inventory:
+
+| What | Value | Set by |
+|---|---|---|
+| Hostname | `<inventory_hostname>.local.domain` | `node_fqdn` in [common/tasks/hostname.yml](roles/common/tasks/hostname.yml) |
+| `/etc/hosts` | every peer's IP + FQDN + short name | [common/tasks/hosts_file.yml](roles/common/tasks/hosts_file.yml) |
+| DNS / gateway | `10.0.0.1` | [common/tasks/network.yml](roles/common/tasks/network.yml) |
+
+> **Now vs. later.** Today the Proxmox VMs already have the inventory IPs, so
+> Ansible just names them and wires DNS. Later, **cloud-init** will create/clone
+> the VMs and assign the IPs; this project stays the same — bootstrap still
+> applies the hostnames, `/etc/hosts`, and repo on top.

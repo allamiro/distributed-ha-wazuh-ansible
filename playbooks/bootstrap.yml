@@ -1,0 +1,13 @@
+---
+# Base prep for EVERY host, run first. The common role sets each box's
+# hostname to its inventory name (<inventory_hostname>.local.domain), writes
+# /etc/hosts for all cluster peers, applies DNS/gateway, and adds the Wazuh repo.
+#
+# Today the VMs already exist in Proxmox with the IPs from the inventory; this
+# play names them and wires DNS. (Later, cloud-init will create/clone the VMs
+# and set IPs — at which point this play still applies the hostnames/repo.)
+- name: Bootstrap all hosts (hostname, /etc/hosts, DNS/gateway, Wazuh repo)
+  hosts: all
+  become: true
+  roles:
+    - role: common
