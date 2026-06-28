@@ -1,7 +1,8 @@
 ---
 # roles/common/tasks/network.yml
-# Configures DNS (and optionally the default gateway) on the primary
-# NetworkManager connection. Idempotent: only modifies when values differ.
+# Configures DNS (and the default gateway on static connections) on the primary
+# NetworkManager connection, then restarts NetworkManager so /etc/resolv.conf is
+# regenerated. Idempotent: only modifies when values differ.
 
 - name: Ensure NetworkManager is running
   ansible.builtin.service:
@@ -51,25 +52,47 @@
       fi
   register: dns_cfg
   changed_when: "'CHANGED' in dns_cfg.stdout"
-  notify: Reload primary connection
+  notify:
+    - Reload primary connection
+    - Bring the primary connection back up
 
-- name: Configure default gateway (idempotent)
+# Only pin the gateway on STATIC (manual) connections — on DHCP the gateway is
+# provided automatically and nmcli refuses a static gateway.
+- name: Configure default gateway on static connections (idempotent)
   ansible.builtin.shell:
     cmd: |
       set -euo pipefail
       conn="{{ common_primary_conn }}"
-      want_gw="{{ network_gateway }}"
-      cur_gw="$(nmcli -g ipv4.gateway connection show "$conn" || true)"
-      if [ "$cur_gw" != "$want_gw" ]; then
-        nmcli connection modify "$conn" ipv4.gateway "$want_gw"
-        echo CHANGED
+      method="$(nmcli -g ipv4.method connection show "$conn" || echo auto)"
+      if [ "$method" = "manual" ]; then
+        want_gw="{{ network_gateway }}"
+        cur_gw="$(nmcli -g ipv4.gateway connection show "$conn" || true)"
+        if [ "$cur_gw" != "$want_gw" ]; then
+          nmcli connection modify "$conn" ipv4.gateway "$want_gw"
+          echo CHANGED
+        fi
       fi
   register: gw_cfg
   changed_when: "'CHANGED' in gw_cfg.stdout"
-  notify: Reload primary connection
+  notify:
+    - Reload primary connection
+    - Bring the primary connection back up
   when: common_configure_gateway | bool
 
-# Apply the DNS/connection change NOW (handlers normally run at play end), so
-# name resolution works for the dnf/repo tasks that follow in this same role.
-- name: Apply DNS changes immediately
+# Restart NetworkManager NOW (flush handlers) so resolv.conf is regenerated
+# before the dnf/repo tasks that follow in this same role.
+- name: Apply DNS/gateway changes immediately
   ansible.builtin.meta: flush_handlers
+
+- name: Verify the configured DNS is present in /etc/resolv.conf
+  ansible.builtin.command: "grep -q '{{ dns_servers[0] }}' /etc/resolv.conf"
+  register: resolv_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn if resolv.conf did not pick up the DNS
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: {{ dns_servers[0] }} not found in /etc/resolv.conf after restart.
+      Check NetworkManager / DNS config on {{ inventory_hostname }}.
+  when: resolv_check.rc != 0
