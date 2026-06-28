@@ -63,6 +63,25 @@
     remote_src: true
     creates: /usr/share/filebeat/module/wazuh
 
+# --- Keystore: store indexer creds out of the plaintext config ---
+- name: Create the Filebeat keystore
+  ansible.builtin.command:
+    cmd: filebeat keystore create
+    creates: /var/lib/filebeat/filebeat.keystore
+  when: enable_ssl | bool
+
+- name: Store indexer credentials in the Filebeat keystore
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      echo '{{ filebeat_indexer_username }}' | filebeat keystore add username --stdin --force
+      echo '{{ filebeat_indexer_password }}' | filebeat keystore add password --stdin --force
+    executable: /bin/bash
+  no_log: true
+  changed_when: false
+  when: enable_ssl | bool
+  notify: Restart filebeat
+
 # --- Configuration + service ---
 - name: Deploy filebeat.yml
   ansible.builtin.template:

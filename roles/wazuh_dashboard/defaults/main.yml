@@ -22,3 +22,6 @@ dashboard_opensearch_password: "{{ vault_dashboard_admin_password | default('kib
 dashboard_api_port: 55000
 dashboard_api_username: "wazuh-wui"
 dashboard_api_password: "{{ vault_wazuh_api_password | default('wazuh-wui') }}"
+# run_as maps the dashboard login to the API user's RBAC. Requires the wazuh-wui
+# API user to have run_as enabled; leave false unless you've configured that.
+dashboard_api_run_as: false

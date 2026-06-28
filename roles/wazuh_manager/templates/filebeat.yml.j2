@@ -8,8 +8,9 @@ output.elasticsearch:
 {% endfor %}
 {% if enable_ssl | default(true) %}
   protocol: https
-  username: "{{ filebeat_indexer_username }}"
-  password: "{{ filebeat_indexer_password }}"
+  # credentials come from the Filebeat keystore (filebeat keystore add ...)
+  username: ${username}
+  password: ${password}
   ssl.certificate_authorities:
     - "{{ filebeat_certs_dir }}/root-ca.pem"
   ssl.certificate: "{{ filebeat_certs_dir }}/{{ inventory_hostname }}.pem"

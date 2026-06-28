@@ -102,6 +102,14 @@ alerts template + module and includes the `rseq` seccomp allow needed on Rocky 9
 Firewalld ports are opened per role: indexer `9200/9300`, manager
 `1514/1515/1516/55000`, dashboard `443`.
 
+**Credentials are kept out of plaintext configs.** Indexer credentials used by
+Filebeat live in the **Filebeat keystore** (`${username}`/`${password}` in
+`filebeat.yml`), and the credentials used by the indexer connector live in the
+**Wazuh manager keystore** (`wazuh-keystore -f indexer`). Set the real values in
+`vault.yml` (`vault_indexer_admin_password`, …). After first deploy, harden by
+rotating the default `admin:admin` / `wazuh-wui` passwords with Wazuh's
+`wazuh-passwords-tool.sh` (a future `secure.yml` could automate this).
+
 ## Load balancing (HAProxy)
 
 The `load_balancer` role fronts the dashboards as the HA access layer on

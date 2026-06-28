@@ -6,4 +6,4 @@ hosts:
       port: {{ dashboard_api_port }}
       username: "{{ dashboard_api_username }}"
       password: "{{ dashboard_api_password }}"
-      run_as: false
+      run_as: {{ dashboard_api_run_as | default(false) | string | lower }}

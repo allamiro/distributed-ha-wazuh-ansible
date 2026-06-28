@@ -20,6 +20,20 @@
     replace: "{{ lookup('ansible.builtin.template', 'indexer.xml.j2') }}"
   notify: Restart wazuh-manager
 
+# The indexer connector authenticates to the indexer with credentials read from
+# the manager keystore (not from ossec.conf). Only needed when TLS/auth is on.
+- name: Store indexer credentials in the Wazuh manager keystore
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      echo '{{ filebeat_indexer_username }}' | /var/ossec/bin/wazuh-keystore -f indexer -k username
+      echo '{{ filebeat_indexer_password }}' | /var/ossec/bin/wazuh-keystore -f indexer -k password
+    executable: /bin/bash
+  no_log: true
+  changed_when: false
+  when: enable_ssl | bool
+  notify: Restart wazuh-manager
+
 - name: Open Wazuh manager firewall ports
   ansible.posix.firewalld:
     port: "{{ item }}"
