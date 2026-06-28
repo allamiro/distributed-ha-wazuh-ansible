@@ -18,7 +18,7 @@
 
 - name: Remove the dashboard security plugin (no-SSL build)
   ansible.builtin.command:
-    cmd: "{{ dashboard_home }}/bin/opensearch-dashboards-plugin remove securityDashboards"
+    cmd: "{{ dashboard_home }}/bin/opensearch-dashboards-plugin remove securityDashboards --allow-root"
   when:
     - not (enable_ssl | bool)
     - dashboard_security_plugin.stat.exists | default(false)
