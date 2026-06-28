@@ -24,8 +24,12 @@ opensearch.ssl.verificationMode: none
 server.ssl.enabled: false
 {% endif %}
 
+{% if enable_ssl | default(true) %}
+# Security-plugin settings — only valid when the security plugin is present
+# (SSL build). In the no-SSL build the plugin is removed, so these are omitted.
 opensearch.requestHeadersAllowlist: ["securitytenant", "Authorization"]
 opensearch_security.multitenancy.enabled: {{ dashboard_multitenancy_enabled | default(false) | string | lower }}
 opensearch_security.multitenancy.tenants.preferred: ["Global", "Private"]
 opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+{% endif %}
 uiSettings.overrides.defaultRoute: {{ dashboard_default_route }}

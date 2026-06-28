@@ -3,6 +3,7 @@
 
 dashboard_package: wazuh-dashboard
 dashboard_service: wazuh-dashboard
+dashboard_home: /usr/share/wazuh-dashboard
 dashboard_conf: /etc/wazuh-dashboard/opensearch_dashboards.yml
 dashboard_app_conf: /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
 dashboard_certs_dir: /etc/wazuh-dashboard/certs

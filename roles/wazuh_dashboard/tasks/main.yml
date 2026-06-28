@@ -6,6 +6,24 @@
     name: "{{ dashboard_package }}"
     state: present
 
+# --- No-SSL build: the indexer runs with security disabled, so the dashboard
+# security plugin (which calls /_plugins/_security/authinfo) must be removed,
+# otherwise every login returns 401 "no handler found". Removing it lets the
+# dashboard connect to the security-off indexer with no login screen.
+- name: Check whether the dashboard security plugin is installed
+  ansible.builtin.stat:
+    path: "{{ dashboard_home }}/plugins/securityDashboards"
+  register: dashboard_security_plugin
+  when: not (enable_ssl | bool)
+
+- name: Remove the dashboard security plugin (no-SSL build)
+  ansible.builtin.command:
+    cmd: "{{ dashboard_home }}/bin/opensearch-dashboards-plugin remove securityDashboards"
+  when:
+    - not (enable_ssl | bool)
+    - dashboard_security_plugin.stat.exists | default(false)
+  notify: Restart wazuh-dashboard
+
 # --- Certificates (delivered by the certificates role) ---
 - name: Ensure the dashboard certificates directory exists
   ansible.builtin.file:
