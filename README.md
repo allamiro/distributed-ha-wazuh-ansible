@@ -66,11 +66,11 @@ without TLS, then deploy the real, secured cluster:
 | [`inventories/test-nossl`](inventories/test-nossl/) | **off** (`enable_ssl: false`) | none | Fast functional test, no certs |
 
 ```bash
-# Secured (default)
-ansible-playbook site.yml -i inventories/production/hosts.yml --ask-vault-pass
+# Secured (default) — replace <USER> with your sudo-capable deploy user
+ansible-playbook site.yml -i inventories/production/hosts.yml -u <USER> -k -K --ask-vault-pass
 
 # No-SSL test build
-ansible-playbook site.yml -i inventories/test-nossl/hosts.yml
+ansible-playbook site.yml -i inventories/test-nossl/hosts.yml -u <USER> -k -K
 ```
 
 When `enable_ssl` is **off**, the `certificates` role is skipped entirely and
@@ -180,10 +180,16 @@ relevant playbook:
 
 - **Targets**: Rocky Linux 9 VMs (today: created/cloned in **Proxmox**), each
   reachable on the **static IP** assigned in the inventory.
-- **SSH**: an `ansible` user on every host with **passwordless sudo** and your
-  SSH key installed (`ansible_user` / `ansible_ssh_private_key_file` in the
-  inventory).
+- **SSH + sudo**: a login user on every host that can **sudo** (the playbooks
+  `become: true`). Either set it in the inventory (`ansible_user`) or pass it on
+  the CLI with `-u <USER>`.
 - **Control node**: Ansible 2.14+ and Python 3.
+
+> **`<USER>` placeholder.** In the commands below, replace `<USER>` with your
+> deploy account (the one with sudo). Auth flags:
+> `-u <USER>` login user · `-k` prompt for SSH password (omit and use
+> `--private-key ~/.ssh/key` if you use a key) · `-K` prompt for the sudo
+> password (omit if that user has passwordless sudo).
 
 > **Hostnames are set by Ansible, from the inventory.** You only need the IPs to
 > be reachable — you do **not** have to pre-set hostnames on the VMs. The
@@ -215,13 +221,13 @@ ansible-vault encrypt inventories/production/group_vars/vault.yml
 ### 4. Check connectivity
 
 ```bash
-ansible all -i inventories/production/hosts.yml -m ping
+ansible all -i inventories/production/hosts.yml -u <USER> -k -m ping
 ```
 
 ### 5. Bootstrap — set hostnames, /etc/hosts, DNS, repo
 
 ```bash
-ansible-playbook -i inventories/production/hosts.yml playbooks/bootstrap.yml
+ansible-playbook -i inventories/production/hosts.yml playbooks/bootstrap.yml -u <USER> -k -K
 ```
 
 This names every VM from the inventory and wires DNS/peers. (`site.yml` runs it
@@ -231,31 +237,31 @@ first automatically; you can also run it standalone any time.)
 
 ```bash
 # Everything, in order: bootstrap -> CA -> indexer -> manager -> dashboard -> LB
-ansible-playbook -i inventories/production/hosts.yml site.yml --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml site.yml -u <USER> -k -K --ask-vault-pass
 ```
 
 Or one tier at a time:
 
 ```bash
-ansible-playbook -i inventories/production/hosts.yml playbooks/certificates.yml --ask-vault-pass
-ansible-playbook -i inventories/production/hosts.yml playbooks/indexer.yml
-ansible-playbook -i inventories/production/hosts.yml playbooks/manager.yml --ask-vault-pass
-ansible-playbook -i inventories/production/hosts.yml playbooks/dashboard.yml --ask-vault-pass
-ansible-playbook -i inventories/production/hosts.yml playbooks/load_balancer.yml --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/certificates.yml -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/indexer.yml      -u <USER> -k -K
+ansible-playbook -i inventories/production/hosts.yml playbooks/manager.yml      -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/dashboard.yml    -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/load_balancer.yml -u <USER> -k -K --ask-vault-pass
 ```
 
 ### 7. Verify
 
 ```bash
 # hostnames were applied from the inventory
-ansible all -i inventories/production/hosts.yml -a hostname
+ansible all -i inventories/production/hosts.yml -u <USER> -k -a hostname
 
 # indexer cluster is green and all nodes joined
-ansible indexer-hot-1 -i inventories/production/hosts.yml -b \
+ansible indexer-hot-1 -i inventories/production/hosts.yml -u <USER> -k -K -b \
   -a "curl -sk -u admin:<pw> https://localhost:9200/_cluster/health?pretty"
 
 # manager cluster nodes
-ansible wazuh_manager_master -i inventories/production/hosts.yml -b \
+ansible wazuh_manager_master -i inventories/production/hosts.yml -u <USER> -k -K -b \
   -a "/var/ossec/bin/cluster_control -l"
 ```
 
@@ -263,8 +269,10 @@ Then browse to **https://siem.local.domain** (the HAProxy VIP).
 
 ### No-SSL test build
 
+No CA, no vault — `enable_ssl: false`, so the certificates role is skipped.
+
 ```bash
-ansible-playbook -i inventories/test-nossl/hosts.yml site.yml
+ansible-playbook -i inventories/test-nossl/hosts.yml site.yml -u <USER> -k -K
 ```
 
 ### Hostnames & networking
