@@ -6,8 +6,9 @@ indexer_network_host: "0.0.0.0"
 indexer_path_data: /var/lib/wazuh-indexer
 indexer_path_logs: /var/log/wazuh-indexer
 
-# Bootstrap the cluster from the first node only
-indexer_initial_master_nodes: "{{ groups['wazuh_indexer'] }}"
+# Master-eligible (cluster_manager) nodes = the hot tier. Keep this count ODD
+# (3, 5, …) for quorum. Warm/cold nodes are data-only.
+indexer_initial_master_nodes: "{{ groups['indexer_hot'] | default([]) }}"
 
 # ISM temperature tier for this node. Defaults to "hot"; the indexer_hot /
 # indexer_warm / indexer_cold subgroups in the inventory override it. This is

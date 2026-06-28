@@ -1,0 +1,19 @@
+---
+# roles/wazuh_indexer/vars/main.yml
+# Derived cluster topology (computed from the inventory).
+
+# Every indexer node forms the single cluster.
+indexer_all_nodes: "{{ groups['wazuh_indexer'] }}"
+
+# Master-eligible nodes = hot tier (see group_vars/wazuh_indexer.yml).
+indexer_master_nodes: "{{ groups['indexer_hot'] | default([]) }}"
+
+# discovery.seed_hosts — IPs of all indexer nodes.
+indexer_seed_hosts: >-
+  {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host') | list }}
+
+# nodes_dn — one cert DN per indexer node (CN = inventory_hostname).
+indexer_nodes_dn: >-
+  {{ groups['wazuh_indexer']
+     | map('regex_replace', '^(.*)$', 'CN=\1,' ~ indexer_cert_dn_suffix)
+     | list }}

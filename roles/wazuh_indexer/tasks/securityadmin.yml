@@ -1,0 +1,21 @@
+---
+# roles/wazuh_indexer/tasks/securityadmin.yml
+# Loads the security configuration into the cluster. Runs once, from the
+# bootstrap node, after the cluster is up. Idempotent enough to re-run safely.
+
+- name: Run securityadmin.sh to apply the security config
+  ansible.builtin.command:
+    cmd: >-
+      {{ indexer_home }}/plugins/opensearch-security/tools/securityadmin.sh
+      -cd {{ indexer_security_dir }}/
+      -icl -nhnv
+      -cacert {{ indexer_certs_dir }}/root-ca.pem
+      -cert {{ indexer_certs_dir }}/admin.pem
+      -key {{ indexer_certs_dir }}/admin-key.pem
+      -h {{ ansible_host | default('127.0.0.1') }}
+      -p {{ indexer_transport_port }}
+  environment:
+    JAVA_HOME: "{{ indexer_home }}/jdk"
+  register: securityadmin_result
+  changed_when: "'Done with success' in securityadmin_result.stdout"
+  run_once: true

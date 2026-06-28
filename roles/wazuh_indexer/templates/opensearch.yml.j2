@@ -1,0 +1,69 @@
+# {{ ansible_managed }}
+# Wazuh indexer (OpenSearch) — node {{ inventory_hostname }} (tier: {{ indexer_temp }})
+
+cluster.name: {{ indexer_cluster_name }}
+node.name: {{ inventory_hostname }}
+node.attr.temp: {{ indexer_temp }}
+{% if inventory_hostname in indexer_master_nodes %}
+node.roles: [ cluster_manager, data, ingest, remote_cluster_client ]
+{% else %}
+node.roles: [ data, ingest, remote_cluster_client ]
+{% endif %}
+
+path.data: {{ indexer_path_data }}
+path.logs: {{ indexer_path_logs }}
+
+network.host: {{ indexer_network_host }}
+http.port: {{ indexer_http_port }}
+transport.port: {{ indexer_transport_port }}
+
+discovery.seed_hosts:
+{% for ip in indexer_seed_hosts %}
+  - {{ ip }}
+{% endfor %}
+cluster.initial_cluster_manager_nodes:
+{% for node in indexer_master_nodes %}
+  - {{ node }}
+{% endfor %}
+
+bootstrap.memory_lock: true
+
+# --- Security (OpenSearch security plugin) ---
+plugins.security.ssl.transport.pemcert_filepath: certs/{{ inventory_hostname }}.pem
+plugins.security.ssl.transport.pemkey_filepath: certs/{{ inventory_hostname }}-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/{{ inventory_hostname }}.pem
+plugins.security.ssl.http.pemkey_filepath: certs/{{ inventory_hostname }}-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca.pem
+plugins.security.allow_default_init_securityindex: true
+plugins.security.authcz.admin_dn:
+{% for dn in indexer_admin_dn %}
+  - "{{ dn }}"
+{% endfor %}
+plugins.security.nodes_dn:
+{% for dn in indexer_nodes_dn %}
+  - "{{ dn }}"
+{% endfor %}
+plugins.security.restapi.roles_enabled:
+  - "all_access"
+  - "security_rest_api_access"
+plugins.security.system_indices.enabled: true
+plugins.security.system_indices.indices:
+  - ".plugins-ml-config"
+  - ".opendistro-alerting-config"
+  - ".opendistro-alerting-alert*"
+  - ".opendistro-anomaly-results*"
+  - ".opendistro-anomaly-detector*"
+  - ".opendistro-anomaly-checkpoints"
+  - ".opendistro-anomaly-detection-state"
+  - ".opendistro-reports-*"
+  - ".opendistro-notifications-*"
+  - ".opendistro-notebooks"
+  - ".opensearch-observability"
+  - ".opensearch-ml-config"
+  - ".opendistro-asynchronous-search-response*"
+  - ".replication-metadata-store"
+
+compatibility.override_main_response_version: true

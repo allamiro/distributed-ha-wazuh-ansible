@@ -1,0 +1,33 @@
+---
+# roles/wazuh_indexer/defaults/main.yml
+
+indexer_package_name: wazuh-indexer
+indexer_service: wazuh-indexer
+
+# Layout
+indexer_conf_dir: /etc/wazuh-indexer
+indexer_certs_dir: "{{ indexer_conf_dir }}/certs"     # opensearch.yml uses certs/ (relative)
+indexer_security_dir: "{{ indexer_conf_dir }}/opensearch-security"
+indexer_home: /usr/share/wazuh-indexer
+
+# Cluster / node — sensible fallbacks; group_vars override most of these.
+indexer_cluster_name: "wazuh-indexer-cluster"
+indexer_network_host: "0.0.0.0"
+indexer_http_port: 9200
+indexer_transport_port: 9300
+indexer_heap_size: "1g"
+indexer_path_data: /var/lib/wazuh-indexer
+indexer_path_logs: /var/log/wazuh-indexer
+indexer_temp: hot                                     # overridden by tier subgroup
+
+# Kernel/system requirements for OpenSearch
+indexer_max_map_count: 262144
+indexer_memlock_unlimited: true
+
+# Certificate DN scheme (must match the certificates role output)
+indexer_cert_dn_suffix: "OU=Wazuh,O=Wazuh,L=California,C=US"
+indexer_admin_dn:
+  - "CN=admin,{{ indexer_cert_dn_suffix }}"
+
+# Bootstrap the security index once (run on certs_generate_on node)
+indexer_run_securityadmin: true

@@ -1,0 +1,110 @@
+---
+# roles/wazuh_indexer/tasks/main.yml
+
+- name: Install the Wazuh indexer package
+  ansible.builtin.dnf:
+    name: "{{ indexer_package_name }}"
+    state: present
+
+# --- Kernel / system tuning required by OpenSearch ---
+- name: Set vm.max_map_count
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ indexer_max_map_count }}"
+    state: present
+    sysctl_set: true
+    reload: true
+
+- name: Create systemd drop-in dir for the indexer service
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ indexer_service }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: indexer_memlock_unlimited | bool
+
+- name: Allow unlimited memlock (bootstrap.memory_lock)
+  ansible.builtin.template:
+    src: memlock-override.conf.j2
+    dest: "/etc/systemd/system/{{ indexer_service }}.service.d/override.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  when: indexer_memlock_unlimited | bool
+  notify:
+    - Reload systemd
+    - Restart wazuh-indexer
+
+# --- Data / log directories ---
+- name: Ensure data and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: "0750"
+  loop:
+    - "{{ indexer_path_data }}"
+    - "{{ indexer_path_logs }}"
+
+- name: Ensure certificates directory exists
+  ansible.builtin.file:
+    path: "{{ indexer_certs_dir }}"
+    state: directory
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: "0500"
+
+- name: Verify node certificates are present (delivered by the certificates role)
+  ansible.builtin.stat:
+    path: "{{ indexer_certs_dir }}/{{ inventory_hostname }}.pem"
+  register: indexer_cert_stat
+
+- name: Fail if certificates are missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ indexer_certs_dir }}/{{ inventory_hostname }}.pem not found.
+      Run playbooks/certificates.yml before deploying the indexer.
+  when: not indexer_cert_stat.stat.exists
+
+# --- Configuration ---
+- name: Deploy opensearch.yml
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ indexer_conf_dir }}/opensearch.yml"
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: "0640"
+  notify: Restart wazuh-indexer
+
+- name: Set JVM heap size
+  ansible.builtin.template:
+    src: heap.options.j2
+    dest: "{{ indexer_conf_dir }}/jvm.options.d/heap.options"
+    owner: wazuh-indexer
+    group: wazuh-indexer
+    mode: "0640"
+  notify: Restart wazuh-indexer
+
+- name: Flush handlers so config/heap/memlock changes apply before health checks
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the indexer
+  ansible.builtin.service:
+    name: "{{ indexer_service }}"
+    state: started
+    enabled: true
+
+- name: Wait for the indexer HTTP port to accept connections
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: "{{ indexer_http_port }}"
+    timeout: 180
+
+# --- One-time security index initialization (bootstrap node only) ---
+- name: Initialize the security index
+  ansible.builtin.import_tasks: securityadmin.yml
+  when:
+    - indexer_run_securityadmin | bool
+    - inventory_hostname == certs_generate_on

@@ -1,0 +1,4 @@
+# {{ ansible_managed }}
+# JVM heap for wazuh-indexer. Set to ~50% of RAM, never above 32g.
+-Xms{{ indexer_heap_size }}
+-Xmx{{ indexer_heap_size }}
