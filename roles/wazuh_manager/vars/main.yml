@@ -15,3 +15,11 @@ filebeat_indexer_hosts: >-
   {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
      | map('regex_replace', '^(.*)$', '\1:' ~ (indexer_http_port | default(9200)))
      | list }}
+
+# Wazuh indexer connector targets: full URLs (scheme depends on enable_ssl)
+indexer_connector_hosts: >-
+  {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
+     | map('regex_replace', '^(.*)$',
+            ('https' if enable_ssl | default(true) else 'http')
+            ~ '://\1:' ~ (indexer_http_port | default(9200)))
+     | list }}

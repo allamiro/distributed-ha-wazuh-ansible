@@ -58,6 +58,14 @@
     mode: "0600"
   notify: Restart wazuh-dashboard
 
+- name: Open the dashboard firewall port
+  ansible.posix.firewalld:
+    port: "{{ dashboard_port }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  when: common_manage_firewall | default(true) | bool
+
 - name: Enable and start the Wazuh dashboard
   ansible.builtin.service:
     name: "{{ dashboard_service }}"

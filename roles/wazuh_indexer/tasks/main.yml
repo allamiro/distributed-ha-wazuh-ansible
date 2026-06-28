@@ -99,6 +99,17 @@
     mode: "0640"
   notify: Restart wazuh-indexer
 
+- name: Open indexer firewall ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - "{{ indexer_http_port }}/tcp"
+    - "{{ indexer_transport_port }}/tcp"
+  when: common_manage_firewall | default(true) | bool
+
 - name: Flush handlers so config/heap/memlock changes apply before health checks
   ansible.builtin.meta: flush_handlers
 

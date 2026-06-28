@@ -85,6 +85,23 @@ the indexer runs with `plugins.security.disabled: true`.
    (`root-ca.pem`, `<node>.pem`, `<node>-key.pem`) into the component's cert dir.
 4. Each component role then consumes them (the indexer fails fast if its cert is missing).
 
+## Indexer integration (manager → indexer)
+
+The `wazuh_manager` role wires up **both** documented forwarders that move data
+from the server cluster to the indexer cluster:
+
+| Forwarder | Configured in | Carries | SSL source |
+|---|---|---|---|
+| **Filebeat** | `/etc/filebeat/filebeat.yml` | alerts / events (real time) | `/etc/filebeat/certs` |
+| **Indexer connector** | `<indexer>` block in `ossec.conf` | vulnerability data (ECS) | `/etc/filebeat/certs` |
+
+Both point at **every** indexer node (derived from the inventory) and flip
+between `https`/`http` based on `enable_ssl`. Filebeat also pulls the Wazuh
+alerts template + module and includes the `rseq` seccomp allow needed on Rocky 9.
+
+Firewalld ports are opened per role: indexer `9200/9300`, manager
+`1514/1515/1516/55000`, dashboard `443`.
+
 ## Scaling the deployment
 
 Every tier has commented **expansion slots** in

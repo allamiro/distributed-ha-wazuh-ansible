@@ -18,10 +18,14 @@ opensearch.ssl.certificateAuthorities:
 server.ssl.enabled: true
 server.ssl.key: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}-key.pem"
 server.ssl.certificate: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem"
+opensearch_security.cookie.secure: true
 {% else %}
 opensearch.ssl.verificationMode: none
 server.ssl.enabled: false
 {% endif %}
 
 opensearch.requestHeadersAllowlist: ["securitytenant", "Authorization"]
-uiSettings.overrides.defaultRoute: /app/wz-home
+opensearch_security.multitenancy.enabled: {{ dashboard_multitenancy_enabled | default(false) | string | lower }}
+opensearch_security.multitenancy.tenants.preferred: ["Global", "Private"]
+opensearch_security.readonly_mode.roles: ["kibana_read_only"]
+uiSettings.overrides.defaultRoute: {{ dashboard_default_route }}

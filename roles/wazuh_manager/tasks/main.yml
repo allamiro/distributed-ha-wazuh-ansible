@@ -13,6 +13,26 @@
     replace: "{{ lookup('ansible.builtin.template', 'cluster.xml.j2') }}"
   notify: Restart wazuh-manager
 
+- name: Configure the indexer connector section in ossec.conf
+  ansible.builtin.replace:
+    path: "{{ manager_conf }}"
+    regexp: '(?s)<indexer>.*?</indexer>'
+    replace: "{{ lookup('ansible.builtin.template', 'indexer.xml.j2') }}"
+  notify: Restart wazuh-manager
+
+- name: Open Wazuh manager firewall ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - "{{ manager_agent_port }}/tcp"
+    - "{{ manager_enroll_port }}/tcp"
+    - "{{ manager_cluster_port }}/tcp"
+    - "{{ manager_api_port }}/tcp"
+  when: common_manage_firewall | default(true) | bool
+
 - name: Enable and start the Wazuh manager
   ansible.builtin.service:
     name: "{{ manager_service }}"

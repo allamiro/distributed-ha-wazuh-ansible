@@ -10,6 +10,10 @@ dashboard_certs_dir: /etc/wazuh-dashboard/certs
 dashboard_port: 443
 dashboard_server_host: "0.0.0.0"
 
+# UI / security
+dashboard_default_route: "/app/wz-home"
+dashboard_multitenancy_enabled: false
+
 # Indexer connection (dashboard -> indexer)
 dashboard_opensearch_username: "kibanaserver"
 dashboard_opensearch_password: "{{ vault_dashboard_admin_password | default('kibanaserver') }}"

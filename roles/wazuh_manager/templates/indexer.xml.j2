@@ -1,0 +1,17 @@
+  <indexer>
+    <enabled>{{ indexer_connector_enabled }}</enabled>
+    <hosts>
+{% for host in indexer_connector_hosts %}
+      <host>{{ host }}</host>
+{% endfor %}
+    </hosts>
+{% if enable_ssl | default(true) %}
+    <ssl>
+      <certificate_authorities>
+        <ca>{{ filebeat_certs_dir }}/root-ca.pem</ca>
+      </certificate_authorities>
+      <certificate>{{ filebeat_certs_dir }}/{{ inventory_hostname }}.pem</certificate>
+      <key>{{ filebeat_certs_dir }}/{{ inventory_hostname }}-key.pem</key>
+    </ssl>
+{% endif %}
+  </indexer>
