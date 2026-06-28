@@ -26,3 +26,6 @@ dashboard_api_password: "{{ vault_wazuh_api_password | default('wazuh-wui') }}"
 # run_as maps the dashboard login to the API user's RBAC. Requires the wazuh-wui
 # API user to have run_as enabled; leave false unless you've configured that.
 dashboard_api_run_as: false
+
+# HTTP/REST-layer TLS. Falls back to enable_ssl unless overridden.
+http_tls: "{{ enable_ssl | default(true) }}"

@@ -6,17 +6,17 @@ output.elasticsearch:
 {% for host in filebeat_indexer_hosts %}
     - "{{ host }}"
 {% endfor %}
+  protocol: {{ 'https' if http_tls | default(true) else 'http' }}
 {% if enable_ssl | default(true) %}
-  protocol: https
   # credentials come from the Filebeat keystore (filebeat keystore add ...)
   username: ${username}
   password: ${password}
+{% endif %}
+{% if http_tls | default(true) %}
   ssl.certificate_authorities:
     - "{{ filebeat_certs_dir }}/root-ca.pem"
   ssl.certificate: "{{ filebeat_certs_dir }}/{{ inventory_hostname }}.pem"
   ssl.key: "{{ filebeat_certs_dir }}/{{ inventory_hostname }}-key.pem"
-{% else %}
-  protocol: http
 {% endif %}
 
 setup.template.json.enabled: true

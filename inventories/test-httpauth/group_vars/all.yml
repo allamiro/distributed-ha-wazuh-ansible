@@ -20,7 +20,7 @@ dns_domain: "local.domain"           # every host is <inventory_hostname>.local.
 # Public entry point — the dashboard is reached via this name through HAProxy
 wazuh_vip: "10.0.100.10"             # HAProxy entry point (VIP if 2nd LB added)
 wazuh_dashboard_fqdn: "siem.local.domain"
-wazuh_dashboard_url: "https://{{ wazuh_dashboard_fqdn }}"
+wazuh_dashboard_url: "http://{{ wazuh_dashboard_fqdn }}"
 
 # Indexer connection list (all data nodes)
 indexer_nodes: "{{ groups['wazuh_indexer'] }}"
@@ -59,10 +59,14 @@ lb_terminate_tls: false
 #   enable_ssl=true,  http_tls=true   -> full HTTPS + login   (production)
 #   enable_ssl=true,  http_tls=false  -> login over plain HTTP (authenticated, no HTTPS)
 #   enable_ssl=false                  -> no security, no login (lab smoke test only)
-enable_ssl: true
-http_tls: true
+enable_ssl: true     # security + auth ON (needs CA)
+http_tls: false      # REST/dashboard layer is PLAIN HTTP (login still works)
 
 # Certificates / PKI
 certs_dir: /etc/wazuh-certificates
 ca_host: "{{ groups['wazuh_ca'][0] }}"   # dedicated CA box (generates + signs)
 certs_generate_on: "indexer-hot-1"       # indexer node that runs securityadmin
+
+# Plain HTTP front: dashboards + HAProxy on 80 (auth still required to log in)
+dashboard_port: 80
+lb_dashboard_bind_port: 80

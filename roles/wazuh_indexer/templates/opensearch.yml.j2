@@ -33,14 +33,18 @@ bootstrap.memory_lock: true
 plugins.security.disabled: true
 {% else %}
 # --- Security (OpenSearch security plugin) ---
+# Transport TLS is MANDATORY whenever the security plugin is enabled.
 plugins.security.ssl.transport.pemcert_filepath: certs/{{ inventory_hostname }}.pem
 plugins.security.ssl.transport.pemkey_filepath: certs/{{ inventory_hostname }}-key.pem
 plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca.pem
 plugins.security.ssl.transport.enforce_hostname_verification: false
-plugins.security.ssl.http.enabled: true
+# HTTP/REST TLS is OPTIONAL — auth still works over plain HTTP when off.
+plugins.security.ssl.http.enabled: {{ (http_tls | default(true)) | bool | lower }}
+{% if http_tls | default(true) %}
 plugins.security.ssl.http.pemcert_filepath: certs/{{ inventory_hostname }}.pem
 plugins.security.ssl.http.pemkey_filepath: certs/{{ inventory_hostname }}-key.pem
 plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca.pem
+{% endif %}
 plugins.security.allow_default_init_securityindex: true
 plugins.security.authcz.admin_dn:
 {% for dn in indexer_admin_dn %}

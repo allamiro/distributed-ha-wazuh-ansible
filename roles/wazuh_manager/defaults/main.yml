@@ -31,3 +31,6 @@ filebeat_module_url: "{{ wazuh_repo_baseurl }}/filebeat/wazuh-filebeat-{{ filebe
 filebeat_template_url: "https://raw.githubusercontent.com/wazuh/wazuh/v{{ wazuh_version }}/extensions/elasticsearch/7.x/wazuh-template.json"
 filebeat_indexer_username: "admin"
 filebeat_indexer_password: "{{ vault_indexer_admin_password | default('admin') }}"
+
+# HTTP/REST-layer TLS. Falls back to enable_ssl unless overridden.
+http_tls: "{{ enable_ssl | default(true) }}"

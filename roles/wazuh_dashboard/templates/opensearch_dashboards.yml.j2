@@ -10,15 +10,21 @@ opensearch.hosts:
 {% endfor %}
 
 {% if enable_ssl | default(true) %}
-opensearch.ssl.verificationMode: certificate
+# Auth credentials are needed whenever the security plugin is on, regardless of
+# whether the HTTP layer is TLS or plain.
 opensearch.username: "{{ dashboard_opensearch_username }}"
 opensearch.password: "{{ dashboard_opensearch_password }}"
+{% endif %}
+{% if http_tls | default(true) %}
+opensearch.ssl.verificationMode: certificate
 opensearch.ssl.certificateAuthorities:
   - "{{ dashboard_certs_dir }}/root-ca.pem"
 server.ssl.enabled: true
 server.ssl.key: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}-key.pem"
 server.ssl.certificate: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem"
+{% if enable_ssl | default(true) %}
 opensearch_security.cookie.secure: true
+{% endif %}
 {% else %}
 opensearch.ssl.verificationMode: none
 server.ssl.enabled: false

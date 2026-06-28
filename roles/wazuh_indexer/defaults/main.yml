@@ -31,3 +31,6 @@ indexer_admin_dn:
 
 # Bootstrap the security index once (run on certs_generate_on node)
 indexer_run_securityadmin: true
+
+# HTTP/REST-layer TLS. Falls back to enable_ssl unless overridden.
+http_tls: "{{ enable_ssl | default(true) }}"

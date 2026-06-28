@@ -1,0 +1,5 @@
+---
+# Wazuh manager cluster — overridable knobs.
+# Derived topology (node_type, master address, Filebeat targets) is computed in
+# roles/wazuh_manager/vars/main.yml from the inventory groups.
+manager_bind_addr: "0.0.0.0"

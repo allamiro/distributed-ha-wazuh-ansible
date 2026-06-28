@@ -6,22 +6,30 @@
     name: "{{ dashboard_package }}"
     state: present
 
-# --- No-SSL build: the indexer runs with security disabled, so the dashboard
-# security plugin (which calls /_plugins/_security/authinfo) must be removed,
-# otherwise every login returns 401 "no handler found". Removing it lets the
-# dashboard connect to the security-off indexer with no login screen.
+# --- Dashboard security plugin must match the security mode (reversible):
+#   enable_ssl=false -> remove it (no auth backend; else every login 401s with
+#                       "no handler found for /_plugins/_security/authinfo").
+#   enable_ssl=true  -> ensure it's present (restore via package reinstall if a
+#                       previous no-security run removed it), so login works.
 - name: Check whether the dashboard security plugin is installed
   ansible.builtin.stat:
     path: "{{ dashboard_home }}/plugins/securityDashboards"
   register: dashboard_security_plugin
-  when: not (enable_ssl | bool)
 
-- name: Remove the dashboard security plugin (no-SSL build)
+- name: Remove the dashboard security plugin (no-security build)
   ansible.builtin.command:
     cmd: "{{ dashboard_home }}/bin/opensearch-dashboards-plugin remove securityDashboards --allow-root"
   when:
     - not (enable_ssl | bool)
-    - dashboard_security_plugin.stat.exists | default(false)
+    - dashboard_security_plugin.stat.exists
+  notify: Restart wazuh-dashboard
+
+- name: Restore the dashboard security plugin (security build, if missing)
+  ansible.builtin.command:
+    cmd: "dnf reinstall -y {{ dashboard_package }}"
+  when:
+    - enable_ssl | bool
+    - not dashboard_security_plugin.stat.exists
   notify: Restart wazuh-dashboard
 
 # --- Certificates (delivered by the certificates role) ---
@@ -32,13 +40,13 @@
     owner: wazuh-dashboard
     group: wazuh-dashboard
     mode: "0500"
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 - name: Verify the dashboard node certificate is present
   ansible.builtin.stat:
     path: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem"
   register: dashboard_cert_stat
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 - name: Fail if the dashboard certificate is missing
   ansible.builtin.fail:
@@ -46,7 +54,7 @@
       {{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem not found.
       Run playbooks/certificates.yml before deploying the dashboard.
   when:
-    - enable_ssl | bool
+    - http_tls | bool
     - not dashboard_cert_stat.stat.exists
 
 - name: Ensure the dashboard owns its certificates (post-install chown)
@@ -55,7 +63,7 @@
     owner: wazuh-dashboard
     group: wazuh-dashboard
     recurse: true
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 # --- Configuration ---
 - name: Deploy opensearch_dashboards.yml

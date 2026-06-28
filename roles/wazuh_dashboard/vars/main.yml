@@ -2,7 +2,7 @@
 # roles/wazuh_dashboard/vars/main.yml
 # Connection lists derived from the inventory (SSL-aware).
 
-dashboard_scheme: "{{ 'https' if enable_ssl | default(true) else 'http' }}"
+dashboard_scheme: "{{ 'https' if http_tls | default(true) else 'http' }}"
 
 # Dashboard -> indexer cluster URLs
 dashboard_opensearch_hosts: >-

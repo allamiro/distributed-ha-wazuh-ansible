@@ -18,6 +18,7 @@ wazuh_dashboard_url: "http://{{ wazuh_dashboard_fqdn }}"   # http, no TLS
 dashboard_port: 80
 lb_dashboard_bind_port: 80
 
-# PKI off
+# Security + HTTP TLS both off (no auth, plain http) — lab smoke test only
 enable_ssl: false
+http_tls: false
 certs_generate_on: "indexer-hot-1"

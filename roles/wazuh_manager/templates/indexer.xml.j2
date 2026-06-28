@@ -5,7 +5,7 @@
       <host>{{ host }}</host>
 {% endfor %}
     </hosts>
-{% if enable_ssl | default(true) %}
+{% if http_tls | default(true) %}
     <ssl>
       <certificate_authorities>
         <ca>{{ filebeat_certs_dir }}/root-ca.pem</ca>

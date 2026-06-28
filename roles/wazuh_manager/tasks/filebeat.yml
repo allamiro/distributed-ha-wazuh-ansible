@@ -14,13 +14,13 @@
     owner: root
     group: root
     mode: "0500"
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 - name: Verify the Filebeat node certificate is present
   ansible.builtin.stat:
     path: "{{ filebeat_certs_dir }}/{{ inventory_hostname }}.pem"
   register: filebeat_cert_stat
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 - name: Fail if the Filebeat certificate is missing
   ansible.builtin.fail:
@@ -28,7 +28,7 @@
       {{ filebeat_certs_dir }}/{{ inventory_hostname }}.pem not found.
       Run playbooks/certificates.yml before deploying the manager.
   when:
-    - enable_ssl | bool
+    - http_tls | bool
     - not filebeat_cert_stat.stat.exists
 
 - name: Ensure Filebeat owns its certificates (post-install chown)
@@ -37,7 +37,7 @@
     owner: root
     group: root
     recurse: true
-  when: enable_ssl | bool
+  when: http_tls | bool
 
 # --- Wazuh alerts template + Filebeat module ---
 - name: Download the Wazuh alerts template
