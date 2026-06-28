@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: common
+  author: Tamir Suliman
+  description: Baseline prep for Rocky Linux 9 Wazuh nodes (hostname, hosts, DNS/gateway, repo)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

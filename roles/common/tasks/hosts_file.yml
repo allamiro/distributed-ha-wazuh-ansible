@@ -1,0 +1,14 @@
+---
+# roles/common/tasks/hosts_file.yml
+# Writes /etc/hosts entries for every cluster peer so nodes resolve each other
+# even before DNS is in place. Managed inside an Ansible-marked block so manual
+# entries above/below are preserved.
+
+- name: Render managed /etc/hosts block for all cluster peers
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED — Wazuh cluster peers"
+    block: "{{ lookup('ansible.builtin.template', 'hosts_block.j2') }}"
+    owner: root
+    group: root
+    mode: "0644"

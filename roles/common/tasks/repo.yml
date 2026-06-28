@@ -1,0 +1,19 @@
+---
+# roles/common/tasks/repo.yml
+# Adds the Wazuh YUM repository on Rocky Linux 9.
+
+- name: Import the Wazuh GPG key
+  ansible.builtin.rpm_key:
+    key: "{{ wazuh_repo_gpgkey }}"
+    state: present
+
+- name: Add the Wazuh repository
+  ansible.builtin.yum_repository:
+    name: wazuh
+    description: "Wazuh repository"
+    baseurl: "{{ wazuh_repo_baseurl }}/yum/"
+    gpgkey: "{{ wazuh_repo_gpgkey }}"
+    gpgcheck: true
+    enabled: true
+    protect: true
+    file: wazuh

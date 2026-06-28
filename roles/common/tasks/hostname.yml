@@ -1,0 +1,16 @@
+---
+# roles/common/tasks/hostname.yml
+# Names each box <inventory_hostname>.local.domain (from node_fqdn).
+
+- name: Set the system hostname to the node FQDN
+  ansible.builtin.hostname:
+    name: "{{ node_fqdn }}"
+    use: systemd
+
+- name: Persist hostname in /etc/hostname
+  ansible.builtin.copy:
+    dest: /etc/hostname
+    content: "{{ node_fqdn }}\n"
+    owner: root
+    group: root
+    mode: "0644"

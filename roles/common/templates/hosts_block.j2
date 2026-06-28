@@ -1,0 +1,7 @@
+{# One line per host that has an ansible_host, plus the dashboard public name. #}
+{% for host in groups['all'] | sort %}
+{% if hostvars[host].ansible_host is defined %}
+{{ "%-15s"|format(hostvars[host].ansible_host) }} {{ host }}.{{ dns_domain }} {{ host }}
+{% endif %}
+{% endfor %}
+{{ "%-15s"|format(wazuh_vip) }} {{ wazuh_dashboard_fqdn }}

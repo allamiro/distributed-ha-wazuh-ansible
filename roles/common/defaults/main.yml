@@ -1,0 +1,24 @@
+---
+# roles/common/defaults/main.yml
+# Baseline preparation applied to every host before any Wazuh component.
+
+# Feature toggles — flip any of these off per-host/group if needed.
+common_manage_hostname: true       # set hostname to node_fqdn
+common_manage_hosts_file: true     # render /etc/hosts with all cluster peers
+common_manage_network: true        # set DNS (+ optional gateway) via NetworkManager
+common_configure_gateway: false    # usually provided by DHCP; enable to pin it
+common_manage_firewall: true       # ensure firewalld is installed + running
+common_manage_time: true           # ensure chrony is installed + running
+common_add_wazuh_repo: true        # add the Wazuh package repo (Rocky 9)
+
+# Base OS packages installed on every node.
+common_packages:
+  - curl
+  - ca-certificates
+  - tar
+  - policycoreutils-python-utils   # semanage, for later SELinux rules
+  - python3
+  - chrony
+  - firewalld
+
+common_timezone: "UTC"

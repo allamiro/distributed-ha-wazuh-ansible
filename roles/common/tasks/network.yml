@@ -1,0 +1,70 @@
+---
+# roles/common/tasks/network.yml
+# Configures DNS (and optionally the default gateway) on the primary
+# NetworkManager connection. Idempotent: only modifies when values differ.
+
+- name: Ensure NetworkManager is running
+  ansible.builtin.service:
+    name: NetworkManager
+    state: started
+    enabled: true
+
+- name: Determine primary network interface (default route)
+  ansible.builtin.set_fact:
+    common_primary_iface: "{{ ansible_facts['default_ipv4']['interface'] }}"
+  when: ansible_facts['default_ipv4']['interface'] is defined
+
+- name: Fail clearly if no default-route interface was found
+  ansible.builtin.fail:
+    msg: "Could not determine the primary interface; set common_manage_network: false or fix routing."
+  when: common_primary_iface is not defined
+
+- name: Find the NetworkManager connection bound to the primary interface
+  ansible.builtin.command: "nmcli -t -g GENERAL.CONNECTION device show {{ common_primary_iface }}"
+  register: nm_conn
+  changed_when: false
+
+- name: Set the primary connection name
+  ansible.builtin.set_fact:
+    common_primary_conn: "{{ nm_conn.stdout | trim }}"
+
+- name: Fail if the interface has no active connection profile
+  ansible.builtin.fail:
+    msg: "Interface {{ common_primary_iface }} has no NetworkManager connection profile."
+  when: common_primary_conn | length == 0
+
+- name: Configure DNS servers and search domain (idempotent)
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      conn="{{ common_primary_conn }}"
+      want_dns="{{ dns_servers | join(',') }}"
+      want_search="{{ dns_domain }}"
+      cur_dns="$(nmcli -g ipv4.dns connection show "$conn" || true)"
+      cur_search="$(nmcli -g ipv4.dns-search connection show "$conn" || true)"
+      if [ "$cur_dns" != "$want_dns" ] || [ "$cur_search" != "$want_search" ]; then
+        nmcli connection modify "$conn" \
+          ipv4.dns "{{ dns_servers | join(' ') }}" \
+          ipv4.dns-search "{{ dns_domain }}" \
+          ipv4.ignore-auto-dns yes
+        echo CHANGED
+      fi
+  register: dns_cfg
+  changed_when: "'CHANGED' in dns_cfg.stdout"
+  notify: Reload primary connection
+
+- name: Configure default gateway (idempotent)
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      conn="{{ common_primary_conn }}"
+      want_gw="{{ network_gateway }}"
+      cur_gw="$(nmcli -g ipv4.gateway connection show "$conn" || true)"
+      if [ "$cur_gw" != "$want_gw" ]; then
+        nmcli connection modify "$conn" ipv4.gateway "$want_gw"
+        echo CHANGED
+      fi
+  register: gw_cfg
+  changed_when: "'CHANGED' in gw_cfg.stdout"
+  notify: Reload primary connection
+  when: common_configure_gateway | bool

@@ -1,0 +1,52 @@
+---
+# roles/common/tasks/main.yml
+
+- name: Assert supported platform (Rocky Linux 9)
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'RedHat'
+      - ansible_facts['distribution_major_version'] == '9'
+    fail_msg: >-
+      This project targets Rocky Linux 9 (EL9). Found
+      {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
+    quiet: true
+
+- name: Install base packages
+  ansible.builtin.dnf:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+  when: common_manage_time | bool
+
+- name: Ensure chrony (time sync) is enabled and running
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+    enabled: true
+  when: common_manage_time | bool
+
+- name: Configure hostname
+  ansible.builtin.import_tasks: hostname.yml
+  when: common_manage_hostname | bool
+
+- name: Render /etc/hosts with all cluster peers
+  ansible.builtin.import_tasks: hosts_file.yml
+  when: common_manage_hosts_file | bool
+
+- name: Configure DNS and gateway
+  ansible.builtin.import_tasks: network.yml
+  when: common_manage_network | bool
+
+- name: Ensure firewalld is enabled and running
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  when: common_manage_firewall | bool
+
+- name: Add the Wazuh package repository
+  ansible.builtin.import_tasks: repo.yml
+  when: common_add_wazuh_repo | bool
