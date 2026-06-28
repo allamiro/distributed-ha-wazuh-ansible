@@ -335,8 +335,9 @@ It reverts, in reverse order (dashboards → HAProxy/keepalived → managers+Fil
 - **common**: removes the managed `/etc/hosts` block and reverts the
   NetworkManager DNS/search overrides
 
-Add `-e remove_repo=yes` to also drop the Wazuh yum repo + GPG key. Without
-`-e confirm=yes` it refuses to run.
+Add `-e remove_repo=yes` to also drop the Wazuh yum repo + GPG key, and
+`-e reboot=yes` to reboot every node afterwards for a guaranteed-clean slate
+(off by default — disruptive). Without `-e confirm=yes` it refuses to run.
 
 > Intentionally **left in place**: base utilities installed by `common`
 > (chrony, firewalld, python3, …) and the host's hostname — reverting those has

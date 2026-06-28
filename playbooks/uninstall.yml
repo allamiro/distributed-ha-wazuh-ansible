@@ -170,3 +170,16 @@
         state: absent
       when: remove_repo | default(false) | bool
       failed_when: false
+
+# --- Optional: reboot every node for a guaranteed-clean slate (-e reboot=yes) ---
+# Off by default — rebooting all hosts is disruptive. The uninstall already
+# applies changes live; this just ensures no lingering processes/tmpfs state.
+- name: Reboot all nodes after uninstall (optional)
+  hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard:load_balancer:wazuh_agents
+  become: true
+  tasks:
+    - name: Reboot and wait for the host to come back
+      ansible.builtin.reboot:
+        msg: "Rebooting after Wazuh uninstall"
+        reboot_timeout: 600
+      when: reboot | default(false) | bool
