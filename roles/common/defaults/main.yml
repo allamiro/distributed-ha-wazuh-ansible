@@ -7,6 +7,7 @@ common_manage_hostname: true       # set hostname to node_fqdn
 common_manage_hosts_file: true     # render /etc/hosts with all cluster peers
 common_manage_network: true        # set DNS (+ gateway) via NetworkManager
 common_configure_gateway: true     # pin ipv4.gateway on static connections
+common_reboot_on_no_network: true  # after DNS/NM apply, ping-check and reboot if no internet
 common_manage_firewall: true       # ensure firewalld is installed + running
 common_manage_time: true           # ensure chrony is installed + running
 common_add_wazuh_repo: true        # add the Wazuh package repo (Rocky 9)

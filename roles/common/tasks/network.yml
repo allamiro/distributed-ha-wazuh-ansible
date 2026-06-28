@@ -119,3 +119,45 @@
     group: root
     mode: "0644"
   when: resolv_post.rc != 0
+
+# Connectivity gate: ping Google after the DNS/NM apply. If there's no reply,
+# a reboot usually clears the network state — reboot once, wait for the host to
+# come back, and re-check. If it's already good, continue without rebooting.
+- name: Ping check (google.com) after DNS/NetworkManager apply
+  ansible.builtin.command: ping -c 3 -W 3 google.com
+  register: net_ping
+  changed_when: false
+  failed_when: false
+  when: common_reboot_on_no_network | default(true)
+
+- name: Reboot to recover networking (no ping reply), then wait for the host
+  ansible.builtin.reboot:
+    msg: "Reboot to recover network connectivity (no ping reply after DNS/NM apply)"
+    reboot_timeout: 600
+  when:
+    - common_reboot_on_no_network | default(true)
+    - net_ping.rc is defined
+    - net_ping.rc != 0
+
+- name: Re-check connectivity after the reboot
+  ansible.builtin.command: ping -c 3 -W 3 google.com
+  register: net_ping2
+  changed_when: false
+  failed_when: false
+  when:
+    - common_reboot_on_no_network | default(true)
+    - net_ping.rc is defined
+    - net_ping.rc != 0
+
+- name: Fail if still no connectivity after the reboot
+  ansible.builtin.fail:
+    msg: >-
+      {{ inventory_hostname }}: no internet connectivity even after a reboot
+      (ping google.com failed). Fix routing/DNS, or use an internal mirror
+      (set wazuh_repo_baseurl).
+  when:
+    - common_reboot_on_no_network | default(true)
+    - net_ping.rc is defined
+    - net_ping.rc != 0
+    - net_ping2.rc is defined
+    - net_ping2.rc != 0
