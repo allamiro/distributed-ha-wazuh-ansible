@@ -1,0 +1,72 @@
+---
+# =============================================================================
+# One-time host prep — run BEFORE site.yml. Works for any inventory (SSL or
+# no-SSL): verifies internet access, fully updates the OS, then reboots and
+# waits for each host to come back.
+#
+#   ansible-playbook -i inventories/test-nossl/hosts.yml  playbooks/prep.yml -u <USER> -k -K
+#   ansible-playbook -i inventories/production/hosts.yml   playbooks/prep.yml -u <USER> -k -K
+#
+# Toggles:
+#   -e prep_require_internet=false   skip the hard internet check (airgap/mirror)
+#   -e prep_update=false             skip the OS update
+#   -e prep_reboot=false             skip the reboot
+# =============================================================================
+
+- name: Prepare hosts (connectivity check, OS update, reboot)
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Check internet routing (ping 8.8.8.8)
+      ansible.builtin.command: ping -c 2 -W 3 8.8.8.8
+      register: prep_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Check DNS + internet (resolve google.com)
+      ansible.builtin.command: getent hosts google.com
+      register: prep_dns
+      changed_when: false
+      failed_when: false
+
+    - name: Check the Wazuh package host is reachable
+      ansible.builtin.command: getent hosts packages.wazuh.com
+      register: prep_wazuh
+      changed_when: false
+      failed_when: false
+
+    - name: Connectivity report
+      ansible.builtin.debug:
+        msg:
+          - "ping 8.8.8.8        : {{ 'OK' if prep_ping.rc == 0 else 'FAIL (no route to internet)' }}"
+          - "resolve google.com  : {{ 'OK' if prep_dns.rc == 0 else 'FAIL (DNS not working)' }}"
+          - "resolve packages.wazuh.com : {{ 'OK' if prep_wazuh.rc == 0 else 'FAIL (cannot resolve Wazuh repo host)' }}"
+
+    - name: Fail early if there is no usable internet/DNS
+      ansible.builtin.assert:
+        that:
+          - prep_ping.rc == 0
+          - prep_dns.rc == 0
+          - prep_wazuh.rc == 0
+        fail_msg: >-
+          Host cannot reach the internet / resolve packages.wazuh.com
+          (ping={{ prep_ping.rc }}, dns={{ prep_dns.rc }}, wazuh={{ prep_wazuh.rc }}).
+          Fix routing/DNS, or use an internal mirror (set wazuh_repo_baseurl) and
+          re-run with -e prep_require_internet=false.
+        success_msg: "Internet + DNS OK."
+      when: prep_require_internet | default(true) | bool
+
+    - name: Update all OS packages (excludes the Wazuh repo)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: true
+        disablerepo: "wazuh"     # don't let the Wazuh repo block the OS update
+      when: prep_update | default(true) | bool
+
+    - name: Reboot and wait for the host to come back
+      ansible.builtin.reboot:
+        msg: "Reboot after host prep (OS update)"
+        reboot_timeout: 600
+      when: prep_reboot | default(true) | bool

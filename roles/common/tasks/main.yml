@@ -11,6 +11,25 @@
       {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}.
     quiet: true
 
+# IMPORTANT: configure DNS/hostname/hosts BEFORE any dnf, and apply DNS
+# immediately (network.yml flushes the reload handler) — otherwise dnf runs with
+# stale/broken resolution and "All mirrors were tried" against packages.wazuh.com.
+- name: Configure hostname
+  ansible.builtin.import_tasks: hostname.yml
+  when: common_manage_hostname | bool
+
+- name: Render /etc/hosts with all cluster peers
+  ansible.builtin.import_tasks: hosts_file.yml
+  when: common_manage_hosts_file | bool
+
+- name: Configure DNS and gateway
+  ansible.builtin.import_tasks: network.yml
+  when: common_manage_network | bool
+
+- name: Add the Wazuh package repository
+  ansible.builtin.import_tasks: repo.yml
+  when: common_add_wazuh_repo | bool
+
 - name: Install base packages
   ansible.builtin.dnf:
     name: "{{ common_packages }}"
@@ -28,25 +47,9 @@
     enabled: true
   when: common_manage_time | bool
 
-- name: Configure hostname
-  ansible.builtin.import_tasks: hostname.yml
-  when: common_manage_hostname | bool
-
-- name: Render /etc/hosts with all cluster peers
-  ansible.builtin.import_tasks: hosts_file.yml
-  when: common_manage_hosts_file | bool
-
-- name: Configure DNS and gateway
-  ansible.builtin.import_tasks: network.yml
-  when: common_manage_network | bool
-
 - name: Ensure firewalld is enabled and running
   ansible.builtin.service:
     name: firewalld
     state: started
     enabled: true
   when: common_manage_firewall | bool
-
-- name: Add the Wazuh package repository
-  ansible.builtin.import_tasks: repo.yml
-  when: common_add_wazuh_repo | bool

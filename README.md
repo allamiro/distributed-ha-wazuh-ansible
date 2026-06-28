@@ -238,6 +238,18 @@ relevant playbook:
 ansible-galaxy collection install -r requirements.yml
 ```
 
+### 1b. (Recommended) prep the hosts — internet check, OS update, reboot
+
+Run once before `site.yml` (works for any inventory). It verifies internet/DNS
+(pings `8.8.8.8`, resolves `google.com` + `packages.wazuh.com`), fully updates
+the OS, then reboots and waits:
+```bash
+ansible-playbook -i inventories/<inv>/hosts.yml playbooks/prep.yml -u <USER> -k -K
+```
+Toggles: `-e prep_require_internet=false` (airgap/mirror), `-e prep_update=false`,
+`-e prep_reboot=false`. If the connectivity check fails, fix DNS/routing or point
+`wazuh_repo_baseurl` at an internal mirror before deploying.
+
 ### 2. Point the inventory at your VMs
 
 Edit [`inventories/production/hosts.yml`](inventories/production/hosts.yml) so

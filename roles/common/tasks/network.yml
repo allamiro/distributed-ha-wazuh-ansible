@@ -68,3 +68,8 @@
   changed_when: "'CHANGED' in gw_cfg.stdout"
   notify: Reload primary connection
   when: common_configure_gateway | bool
+
+# Apply the DNS/connection change NOW (handlers normally run at play end), so
+# name resolution works for the dnf/repo tasks that follow in this same role.
+- name: Apply DNS changes immediately
+  ansible.builtin.meta: flush_handlers
