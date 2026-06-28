@@ -11,6 +11,13 @@ wazuh_vip: "10.0.100.10"
 wazuh_dashboard_fqdn: "siem.local.domain"
 wazuh_dashboard_url: "http://{{ wazuh_dashboard_fqdn }}"   # http, no TLS
 
+# No TLS -> serve on plain HTTP port 80, not 443.
+#   dashboard_port        -> dashboards listen on 80 (+ dashboard firewall 80)
+#   lb_dashboard_bind_port -> HAProxy fronts on 80 (+ LB firewall 80); the
+#                             backend port derives from dashboard_port (80).
+dashboard_port: 80
+lb_dashboard_bind_port: 80
+
 # PKI off
 enable_ssl: false
 certs_generate_on: "indexer-hot-1"
