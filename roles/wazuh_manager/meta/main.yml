@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: wazuh_manager
+  author: Tamir Suliman
+  description: Wazuh manager cluster (master/worker) with Filebeat shipping to the indexer
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

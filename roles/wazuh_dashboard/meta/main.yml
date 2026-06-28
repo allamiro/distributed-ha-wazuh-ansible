@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: wazuh_dashboard
+  author: Tamir Suliman
+  description: Wazuh dashboard frontend wired to the indexer cluster and manager API
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

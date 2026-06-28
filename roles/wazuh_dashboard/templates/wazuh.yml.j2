@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+# Wazuh dashboard app -> Wazuh manager API connection
+hosts:
+  - default:
+      url: "https://{{ dashboard_api_host }}"
+      port: {{ dashboard_api_port }}
+      username: "{{ dashboard_api_username }}"
+      password: "{{ dashboard_api_password }}"
+      run_as: false

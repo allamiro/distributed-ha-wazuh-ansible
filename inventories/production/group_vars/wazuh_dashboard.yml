@@ -1,13 +1,6 @@
 ---
-# Wazuh dashboard settings.
+# Wazuh dashboard — overridable knobs.
+# Connection lists (indexer URLs, manager API host) are derived in
+# roles/wazuh_dashboard/vars/main.yml from the inventory groups.
 dashboard_port: 443
 dashboard_server_host: "0.0.0.0"
-
-# Dashboards talk to the indexer cluster (round-robin)
-dashboard_opensearch_hosts: >-
-  {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
-     | map('regex_replace', '^(.*)$', 'https://\1:' ~ indexer_http_port) | list }}
-
-# Wazuh API connection goes through the manager VIP / master
-dashboard_wazuh_api_host: "{{ manager_master_addr | default(wazuh_vip) }}"
-dashboard_wazuh_api_port: 55000

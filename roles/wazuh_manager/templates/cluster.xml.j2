@@ -1,0 +1,13 @@
+  <cluster>
+    <name>{{ manager_cluster_name }}</name>
+    <node_name>{{ inventory_hostname }}</node_name>
+    <node_type>{{ manager_node_type | trim }}</node_type>
+    <key>{{ manager_cluster_key }}</key>
+    <port>{{ manager_cluster_port }}</port>
+    <bind_addr>{{ manager_bind_addr }}</bind_addr>
+    <nodes>
+        <node>{{ manager_master_addr }}</node>
+    </nodes>
+    <hidden>{{ manager_hidden }}</hidden>
+    <disabled>{{ manager_cluster_disabled }}</disabled>
+  </cluster>

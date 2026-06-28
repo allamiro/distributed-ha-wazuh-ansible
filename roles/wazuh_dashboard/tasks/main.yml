@@ -1,0 +1,65 @@
+---
+# roles/wazuh_dashboard/tasks/main.yml
+
+- name: Install the Wazuh dashboard
+  ansible.builtin.dnf:
+    name: "{{ dashboard_package }}"
+    state: present
+
+# --- Certificates (delivered by the certificates role) ---
+- name: Ensure the dashboard certificates directory exists
+  ansible.builtin.file:
+    path: "{{ dashboard_certs_dir }}"
+    state: directory
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: "0500"
+  when: enable_ssl | bool
+
+- name: Verify the dashboard node certificate is present
+  ansible.builtin.stat:
+    path: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem"
+  register: dashboard_cert_stat
+  when: enable_ssl | bool
+
+- name: Fail if the dashboard certificate is missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem not found.
+      Run playbooks/certificates.yml before deploying the dashboard.
+  when:
+    - enable_ssl | bool
+    - not dashboard_cert_stat.stat.exists
+
+- name: Ensure the dashboard owns its certificates (post-install chown)
+  ansible.builtin.file:
+    path: "{{ dashboard_certs_dir }}"
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    recurse: true
+  when: enable_ssl | bool
+
+# --- Configuration ---
+- name: Deploy opensearch_dashboards.yml
+  ansible.builtin.template:
+    src: opensearch_dashboards.yml.j2
+    dest: "{{ dashboard_conf }}"
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: "0640"
+  notify: Restart wazuh-dashboard
+
+- name: Configure the Wazuh app API connection
+  ansible.builtin.template:
+    src: wazuh.yml.j2
+    dest: "{{ dashboard_app_conf }}"
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: "0600"
+  notify: Restart wazuh-dashboard
+
+- name: Enable and start the Wazuh dashboard
+  ansible.builtin.service:
+    name: "{{ dashboard_service }}"
+    state: started
+    enabled: true

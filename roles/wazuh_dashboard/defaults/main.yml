@@ -1,0 +1,20 @@
+---
+# roles/wazuh_dashboard/defaults/main.yml
+
+dashboard_package: wazuh-dashboard
+dashboard_service: wazuh-dashboard
+dashboard_conf: /etc/wazuh-dashboard/opensearch_dashboards.yml
+dashboard_app_conf: /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+dashboard_certs_dir: /etc/wazuh-dashboard/certs
+
+dashboard_port: 443
+dashboard_server_host: "0.0.0.0"
+
+# Indexer connection (dashboard -> indexer)
+dashboard_opensearch_username: "kibanaserver"
+dashboard_opensearch_password: "{{ vault_dashboard_admin_password | default('kibanaserver') }}"
+
+# Wazuh API connection (dashboard app -> manager API)
+dashboard_api_port: 55000
+dashboard_api_username: "wazuh-wui"
+dashboard_api_password: "{{ vault_wazuh_api_password | default('wazuh-wui') }}"

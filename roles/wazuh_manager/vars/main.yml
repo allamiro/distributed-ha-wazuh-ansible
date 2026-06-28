@@ -1,0 +1,17 @@
+---
+# roles/wazuh_manager/vars/main.yml
+# Topology derived from the inventory (works for any inventory, SSL or not).
+
+# master vs worker, from which subgroup this host is in
+manager_node_type: >-
+  {{ 'master' if inventory_hostname in groups['wazuh_manager_master'] | default([])
+     else 'worker' }}
+
+# Address every node points at to join the cluster (the master)
+manager_master_addr: "{{ hostvars[groups['wazuh_manager_master'][0]].ansible_host }}"
+
+# Filebeat output targets: <indexer_ip>:<port> for every indexer node
+filebeat_indexer_hosts: >-
+  {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
+     | map('regex_replace', '^(.*)$', '\1:' ~ (indexer_http_port | default(9200)))
+     | list }}

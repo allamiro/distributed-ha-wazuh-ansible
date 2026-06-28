@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+# Wazuh dashboard {{ inventory_hostname }}
+
+server.host: "{{ dashboard_server_host }}"
+server.port: {{ dashboard_port }}
+
+opensearch.hosts:
+{% for host in dashboard_opensearch_hosts %}
+  - "{{ host }}"
+{% endfor %}
+
+{% if enable_ssl | default(true) %}
+opensearch.ssl.verificationMode: certificate
+opensearch.username: "{{ dashboard_opensearch_username }}"
+opensearch.password: "{{ dashboard_opensearch_password }}"
+opensearch.ssl.certificateAuthorities:
+  - "{{ dashboard_certs_dir }}/root-ca.pem"
+server.ssl.enabled: true
+server.ssl.key: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}-key.pem"
+server.ssl.certificate: "{{ dashboard_certs_dir }}/{{ inventory_hostname }}.pem"
+{% else %}
+opensearch.ssl.verificationMode: none
+server.ssl.enabled: false
+{% endif %}
+
+opensearch.requestHeadersAllowlist: ["securitytenant", "Authorization"]
+uiSettings.overrides.defaultRoute: /app/wz-home

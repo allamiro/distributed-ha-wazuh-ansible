@@ -1,0 +1,23 @@
+---
+# roles/wazuh_manager/tasks/main.yml
+
+- name: Install the Wazuh manager
+  ansible.builtin.dnf:
+    name: "{{ manager_package }}"
+    state: present
+
+- name: Configure the cluster section in ossec.conf
+  ansible.builtin.replace:
+    path: "{{ manager_conf }}"
+    regexp: '(?s)<cluster>.*?</cluster>'
+    replace: "{{ lookup('ansible.builtin.template', 'cluster.xml.j2') }}"
+  notify: Restart wazuh-manager
+
+- name: Enable and start the Wazuh manager
+  ansible.builtin.service:
+    name: "{{ manager_service }}"
+    state: started
+    enabled: true
+
+- name: Configure Filebeat
+  ansible.builtin.import_tasks: filebeat.yml

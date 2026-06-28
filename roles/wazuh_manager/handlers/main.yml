@@ -1,0 +1,12 @@
+---
+# roles/wazuh_manager/handlers/main.yml
+
+- name: Restart wazuh-manager
+  ansible.builtin.service:
+    name: "{{ manager_service }}"
+    state: restarted
+
+- name: Restart filebeat
+  ansible.builtin.service:
+    name: "{{ filebeat_service }}"
+    state: restarted

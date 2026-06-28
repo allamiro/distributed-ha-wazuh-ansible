@@ -1,0 +1,25 @@
+---
+# roles/wazuh_manager/defaults/main.yml
+
+manager_package: wazuh-manager
+manager_service: wazuh-manager
+manager_conf: /var/ossec/etc/ossec.conf
+
+# Cluster
+manager_cluster_name: "{{ wazuh_cluster_name | default('wazuh') }}"
+manager_cluster_port: 1516
+manager_bind_addr: "0.0.0.0"
+manager_hidden: "no"
+manager_cluster_disabled: "no"
+# 32-char key shared by all nodes. Override via vault in production.
+manager_cluster_key: "{{ vault_manager_cluster_key | default('c98b62a9b6169ac5f67dae55ae4a9088') }}"
+
+# --- Filebeat (ships alerts to the indexer cluster) ---
+filebeat_package: filebeat
+filebeat_service: filebeat
+filebeat_certs_dir: /etc/filebeat/certs
+filebeat_module_version: "0.4"
+filebeat_module_url: "{{ wazuh_repo_baseurl }}/filebeat/wazuh-filebeat-{{ filebeat_module_version }}.tar.gz"
+filebeat_template_url: "https://raw.githubusercontent.com/wazuh/wazuh/v{{ wazuh_version }}/extensions/elasticsearch/7.x/wazuh-template.json"
+filebeat_indexer_username: "admin"
+filebeat_indexer_password: "{{ vault_indexer_admin_password | default('admin') }}"

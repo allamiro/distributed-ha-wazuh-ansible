@@ -1,0 +1,7 @@
+---
+# roles/wazuh_dashboard/handlers/main.yml
+
+- name: Restart wazuh-dashboard
+  ansible.builtin.service:
+    name: "{{ dashboard_service }}"
+    state: restarted
