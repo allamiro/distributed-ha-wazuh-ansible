@@ -15,8 +15,11 @@
     persistent: true
   when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
 
+# include_tasks (not import_tasks): the `when` is evaluated before the file is
+# loaded, so tls_cert.yml's delegate_to: ca_host is never templated when TLS
+# termination is off (ca_host only exists in the SSL inventory).
 - name: Issue the HAProxy TLS certificate from the local CA
-  ansible.builtin.import_tasks: tls_cert.yml
+  ansible.builtin.include_tasks: tls_cert.yml
   when: lb_terminate_tls | bool
 
 - name: Deploy haproxy.cfg (validated before it is written)
@@ -45,5 +48,5 @@
     enabled: true
 
 - name: Configure keepalived VIP
-  ansible.builtin.import_tasks: keepalived.yml
+  ansible.builtin.include_tasks: keepalived.yml
   when: lb_keepalived_enabled | bool
