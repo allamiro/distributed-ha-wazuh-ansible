@@ -13,6 +13,13 @@ lb_firewall_ports: >-
      + ([ (lb_agent_port | string) ~ '/tcp',
           (lb_enroll_port | string) ~ '/tcp' ] if lb_balance_agents else []) }}
 
+# Non-standard ports HAProxy binds that SELinux must allow (http_port_t).
+# 443 is already http_port_t, so it's excluded; 8404 (stats) and the agent
+# ports (when balancing) are not, and would otherwise be denied at startup.
+lb_selinux_ports: >-
+  {{ ([haproxy_stats_port] if haproxy_stats_enabled else [])
+     + ([lb_agent_port, lb_enroll_port] if lb_balance_agents else []) }}
+
 # SANs for the HAProxy cert issued by the local CA (TLS-termination path).
 # The dashboard FQDN + the VIP + every LB node IP.
 lb_cert_san: >-

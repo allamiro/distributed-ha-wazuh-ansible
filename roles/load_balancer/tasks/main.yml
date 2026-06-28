@@ -15,6 +15,19 @@
     persistent: true
   when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
 
+# Binding a listener to a non-standard port (e.g. 8404 stats) is denied by
+# SELinux unless the port is labeled http_port_t. 443 is already labeled.
+- name: Allow HAProxy to bind its non-standard ports (SELinux)
+  community.general.seport:
+    ports: "{{ item }}"
+    proto: tcp
+    setype: http_port_t
+    state: present
+  loop: "{{ lb_selinux_ports }}"
+  when:
+    - ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+    - lb_selinux_ports | length > 0
+
 # include_tasks (not import_tasks): the `when` is evaluated before the file is
 # loaded, so tls_cert.yml's delegate_to: ca_host is never templated when TLS
 # termination is off (ca_host only exists in the SSL inventory).
