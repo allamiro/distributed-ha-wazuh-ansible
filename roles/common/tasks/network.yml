@@ -73,31 +73,49 @@
   changed_when: "'CHANGED' in gw_cfg.stdout"
   when: common_configure_gateway | bool
 
-# Apply the change by restarting NetworkManager so /etc/resolv.conf is
-# regenerated. Restarting NM drops our SSH session, so do it fire-and-forget
-# (async + poll 0) and then wait for the host to come back — otherwise the task
-# dies with the connection (this is what failed every non-dashboard host).
-- name: Restart NetworkManager to apply DNS/gateway (async; drops SSH briefly)
+# Does resolv.conf already reflect our DNS? The nmcli config can be "already
+# correct" (idempotent, not changed) while /etc/resolv.conf is still empty/stale
+# because NM was never restarted on this host. So decide the restart on the
+# ACTUAL resolv.conf content, not just on whether nmcli changed.
+- name: Check whether resolv.conf already has the configured DNS
+  ansible.builtin.command: "grep -q '{{ dns_servers[0] }}' /etc/resolv.conf"
+  register: resolv_pre
+  changed_when: false
+  failed_when: false
+
+# Restarting NM drops our SSH session, so do it fire-and-forget (async + poll 0)
+# and then wait for the host to come back — otherwise the task dies with the
+# connection (this is what failed every non-dashboard host).
+- name: Restart NetworkManager to regenerate resolv.conf (async; drops SSH briefly)
   ansible.builtin.command: systemctl restart NetworkManager
   async: 60
   poll: 0
-  when: dns_cfg is changed or gw_cfg is changed
+  when: dns_cfg is changed or gw_cfg is changed or resolv_pre.rc != 0
 
 - name: Wait for the host to be reachable again after the restart
   ansible.builtin.wait_for_connection:
     delay: 3
     timeout: 120
-  when: dns_cfg is changed or gw_cfg is changed
+  when: dns_cfg is changed or gw_cfg is changed or resolv_pre.rc != 0
 
-- name: Verify the configured DNS is present in /etc/resolv.conf
+- name: Re-check that resolv.conf now has the configured DNS
   ansible.builtin.command: "grep -q '{{ dns_servers[0] }}' /etc/resolv.conf"
-  register: resolv_check
+  register: resolv_post
   changed_when: false
   failed_when: false
 
-- name: Warn if resolv.conf did not pick up the DNS
-  ansible.builtin.debug:
-    msg: >-
-      WARNING: {{ dns_servers[0] }} not found in /etc/resolv.conf after restart.
-      Check NetworkManager / DNS config on {{ inventory_hostname }}.
-  when: resolv_check.rc != 0
+# Fallback: if NM still hasn't populated resolv.conf, write it directly so name
+# resolution works for the dnf/repo tasks that follow.
+- name: Fallback — write /etc/resolv.conf directly if NM did not
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      # Managed by Ansible (common role fallback)
+      {% for d in dns_servers %}
+      nameserver {{ d }}
+      {% endfor %}
+      search {{ dns_domain }}
+    owner: root
+    group: root
+    mode: "0644"
+  when: resolv_post.rc != 0
