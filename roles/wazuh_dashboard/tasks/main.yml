@@ -49,6 +49,14 @@
     mode: "0640"
   notify: Restart wazuh-dashboard
 
+- name: Ensure the Wazuh app config directory exists
+  ansible.builtin.file:
+    path: "{{ dashboard_app_conf | dirname }}"
+    state: directory
+    owner: wazuh-dashboard
+    group: wazuh-dashboard
+    mode: "0750"
+
 - name: Configure the Wazuh app API connection
   ansible.builtin.template:
     src: wazuh.yml.j2
