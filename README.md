@@ -67,7 +67,7 @@ without TLS, then deploy the real, secured cluster:
 
 ```bash
 # Secured (default) — replace <USER> with your sudo-capable deploy user
-ansible-playbook site.yml -i inventories/production/hosts.yml -u <USER> -k -K --ask-vault-pass
+ansible-playbook site.yml -i inventories/production/hosts.yml -u <USER> -k -K
 
 # No-SSL test build
 ansible-playbook site.yml -i inventories/test-nossl/hosts.yml -u <USER> -k -K
@@ -102,13 +102,15 @@ alerts template + module and includes the `rseq` seccomp allow needed on Rocky 9
 Firewalld ports are opened per role: indexer `9200/9300`, manager
 `1514/1515/1516/55000`, dashboard `443`.
 
-**Credentials are kept out of plaintext configs.** Indexer credentials used by
-Filebeat live in the **Filebeat keystore** (`${username}`/`${password}` in
-`filebeat.yml`), and the credentials used by the indexer connector live in the
-**Wazuh manager keystore** (`wazuh-keystore -f indexer`). Set the real values in
-`vault.yml` (`vault_indexer_admin_password`, …). After first deploy, harden by
-rotating the default `admin:admin` / `wazuh-wui` passwords with Wazuh's
-`wazuh-passwords-tool.sh` (a future `secure.yml` could automate this).
+**Credentials.** The actual passwords/keys are plain values in
+[`group_vars/all.yml`](inventories/production/group_vars/all.yml) — **no Ansible
+Vault required**. On the targets they're still kept out of the on-disk service
+configs: Filebeat reads them from the **Filebeat keystore**
+(`${username}`/`${password}` in `filebeat.yml`) and the indexer connector from
+the **Wazuh manager keystore** (`wazuh-keystore -f indexer`). After first deploy,
+harden by rotating the default `admin` / `wazuh-wui` passwords with Wazuh's
+`wazuh-passwords-tool.sh` (a future `secure.yml` could automate this). Encrypting
+the group_vars values in a `vault.yml` is optional.
 
 ## Load balancing (HAProxy)
 
@@ -124,7 +126,7 @@ The `load_balancer` role fronts the dashboards as the HA access layer on
   (SANs: `siem.local.domain`, the VIP, and each LB IP) and re-encrypts to the
   dashboards. If the CA hasn't been built yet, the role stops and tells you to
   run `playbooks/certificates.yml` first.
-- **Stats**: `http://<lb>:8404/` (auth from vault), backed by the Runtime API socket.
+- **Stats**: `http://<lb>:8404/` (auth from group_vars), backed by the Runtime API socket.
 - **Optional agent balancing** (`lb_balance_agents: true`): TCP balance agent
   events (1514) across all managers and enrollment (1515) to the master.
 - **VIP HA**: with a second LB host, `keepalived` floats the VIP via VRRP
@@ -209,14 +211,13 @@ Edit [`inventories/production/hosts.yml`](inventories/production/hosts.yml) so
 each `ansible_host` matches the IP you gave the VM in Proxmox. The hostnames
 (the inventory names) are applied to the VMs for you in the next step.
 
-### 3. Create and encrypt secrets
+### 3. Credentials (no vault required)
 
-```bash
-cp inventories/production/group_vars/vault.yml.example \
-   inventories/production/group_vars/vault.yml
-# fill in real values, then:
-ansible-vault encrypt inventories/production/group_vars/vault.yml
-```
+Credentials are plain values in
+[`inventories/production/group_vars/all.yml`](inventories/production/group_vars/all.yml)
+(cluster key, indexer/dashboard/API passwords). The project runs **without
+Ansible Vault** — just edit those values if you want to change them. Encrypting
+them in a `vault.yml` is optional and not required to deploy.
 
 ### 4. Check connectivity
 
@@ -237,17 +238,17 @@ first automatically; you can also run it standalone any time.)
 
 ```bash
 # Everything, in order: bootstrap -> CA -> indexer -> manager -> dashboard -> LB
-ansible-playbook -i inventories/production/hosts.yml site.yml -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml site.yml -u <USER> -k -K
 ```
 
 Or one tier at a time:
 
 ```bash
-ansible-playbook -i inventories/production/hosts.yml playbooks/certificates.yml -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/certificates.yml -u <USER> -k -K
 ansible-playbook -i inventories/production/hosts.yml playbooks/indexer.yml      -u <USER> -k -K
-ansible-playbook -i inventories/production/hosts.yml playbooks/manager.yml      -u <USER> -k -K --ask-vault-pass
-ansible-playbook -i inventories/production/hosts.yml playbooks/dashboard.yml    -u <USER> -k -K --ask-vault-pass
-ansible-playbook -i inventories/production/hosts.yml playbooks/load_balancer.yml -u <USER> -k -K --ask-vault-pass
+ansible-playbook -i inventories/production/hosts.yml playbooks/manager.yml      -u <USER> -k -K
+ansible-playbook -i inventories/production/hosts.yml playbooks/dashboard.yml    -u <USER> -k -K
+ansible-playbook -i inventories/production/hosts.yml playbooks/load_balancer.yml -u <USER> -k -K
 ```
 
 ### 7. Verify

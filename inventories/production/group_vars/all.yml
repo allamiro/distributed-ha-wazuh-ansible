@@ -29,9 +29,22 @@ indexer_transport_port: 9300
 
 # Manager cluster
 manager_cluster_node_name: "{{ inventory_hostname }}"
-manager_cluster_key: "{{ vault_manager_cluster_key }}"   # define in vault
 manager_cluster_port: 1516
 manager_agent_port: 1514
+
+# -----------------------------------------------------------------------------
+# Credentials — PLAINTEXT, no Ansible Vault required.
+# The project runs as-is with these values (whether enable_ssl is true or false).
+# They are mostly Wazuh defaults; change them here for a real deployment. If you
+# ever want them encrypted, move these keys into an encrypted vault.yml — but
+# that is entirely optional and nothing here depends on it.
+# -----------------------------------------------------------------------------
+manager_cluster_key: "c98b62a9b6169ac5f67dae55ae4a9088"   # 32-char cluster key
+filebeat_indexer_password: "admin"             # indexer 'admin' user (Filebeat + connector)
+dashboard_opensearch_password: "kibanaserver"  # dashboard -> indexer
+dashboard_api_password: "wazuh-wui"            # dashboard app -> manager API
+haproxy_stats_password: "admin"                # HAProxy stats page
+keepalived_auth_pass: "wazuhvrrp"              # VRRP auth (only with 2+ LBs)
 
 # Load balancer
 # false = HAProxy SSL passthrough (dashboards keep their certs)
