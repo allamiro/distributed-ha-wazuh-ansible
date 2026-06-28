@@ -1,0 +1,16 @@
+---
+# Wazuh indexer (OpenSearch) cluster settings.
+indexer_cluster_name: "wazuh-indexer-cluster"
+indexer_heap_size: "4g"                 # ~50% of RAM, max 32g
+indexer_network_host: "0.0.0.0"
+indexer_path_data: /var/lib/wazuh-indexer
+indexer_path_logs: /var/log/wazuh-indexer
+
+# Bootstrap the cluster from the first node only
+indexer_initial_master_nodes: "{{ groups['wazuh_indexer'] }}"
+
+# ISM temperature tier for this node. Defaults to "hot"; the indexer_hot /
+# indexer_warm / indexer_cold subgroups in the inventory override it. This is
+# rendered into opensearch.yml as:  node.attr.temp: {{ indexer_temp }}
+# and drives Index State Management hot -> warm -> cold allocation.
+indexer_temp: hot

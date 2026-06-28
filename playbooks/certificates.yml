@@ -1,0 +1,9 @@
+---
+# Generate the CA and per-node certs on one bootstrap host, then
+# distribute them to every node that needs TLS.
+- name: Generate and distribute Wazuh certificates
+  hosts: wazuh_indexer:wazuh_manager:wazuh_dashboard
+  become: true
+  roles:
+    - role: common
+    - role: certificates

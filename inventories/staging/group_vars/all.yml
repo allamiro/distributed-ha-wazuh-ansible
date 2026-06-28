@@ -1,0 +1,9 @@
+---
+wazuh_version: "4.9.0"
+wazuh_repo_baseurl: "https://packages.wazuh.com/4.x"
+wazuh_cluster_name: "wazuh-staging"
+indexer_heap_size: "1g"
+indexer_http_port: 9200
+indexer_transport_port: 9300
+certs_dir: /etc/wazuh-certificates
+certs_generate_on: "stg-indexer-1"

@@ -1,0 +1,15 @@
+---
+# Master MUST be configured before workers so they can join the cluster.
+- name: Deploy Wazuh manager master
+  hosts: wazuh_manager_master
+  become: true
+  roles:
+    - role: common
+    - role: wazuh_manager
+
+- name: Deploy Wazuh manager workers
+  hosts: wazuh_manager_worker
+  become: true
+  roles:
+    - role: common
+    - role: wazuh_manager

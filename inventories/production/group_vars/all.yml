@@ -1,0 +1,37 @@
+---
+# Variables shared by every host in the production environment.
+
+wazuh_version: "4.9.0"
+wazuh_repo_baseurl: "https://packages.wazuh.com/4.x"
+
+# Target platform
+target_os: "Rocky Linux 9"
+
+# Cluster-wide network (everything sits on 10.0.0.0/16)
+wazuh_cluster_name: "wazuh-prod"
+network_prefix: 16
+network_cidr: "10.0.0.0/16"
+network_gateway: "10.0.0.1"
+dns_servers:
+  - "10.0.0.1"
+dns_domain: "local.domain"           # every host is <inventory_hostname>.local.domain
+
+# Public entry point — the dashboard is reached via this name through HAProxy
+wazuh_vip: "10.0.100.10"             # HAProxy entry point (VIP if 2nd LB added)
+wazuh_dashboard_fqdn: "siem.local.domain"
+wazuh_dashboard_url: "https://{{ wazuh_dashboard_fqdn }}"
+
+# Indexer connection list (all data nodes)
+indexer_nodes: "{{ groups['wazuh_indexer'] }}"
+indexer_http_port: 9200
+indexer_transport_port: 9300
+
+# Manager cluster
+manager_cluster_node_name: "{{ inventory_hostname }}"
+manager_cluster_key: "{{ vault_manager_cluster_key }}"   # define in vault
+manager_cluster_port: 1516
+manager_agent_port: 1514
+
+# Certificates
+certs_dir: /etc/wazuh-certificates
+certs_generate_on: "indexer-hot-1"   # node that bootstraps the CA

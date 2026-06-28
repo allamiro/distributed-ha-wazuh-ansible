@@ -1,0 +1,7 @@
+---
+- name: Deploy HA load balancers (HAProxy + keepalived VIP)
+  hosts: load_balancer
+  become: true
+  roles:
+    - role: common
+    - role: load_balancer

@@ -1,0 +1,14 @@
+---
+# Wazuh manager cluster settings.
+# node_type is derived from the inventory subgroup the host belongs to.
+manager_node_type: >-
+  {{ 'master' if inventory_hostname in groups['wazuh_manager_master'] else 'worker' }}
+manager_bind_addr: "0.0.0.0"
+
+# The master's address that workers connect to
+manager_master_addr: "{{ hostvars[groups['wazuh_manager_master'][0]].ansible_host }}"
+
+# Filebeat ships alerts to the indexer cluster
+filebeat_indexer_hosts: >-
+  {{ groups['wazuh_indexer'] | map('extract', hostvars, 'ansible_host')
+     | map('regex_replace', '^(.*)$', '\1:' ~ indexer_http_port) | list }}

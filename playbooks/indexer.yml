@@ -1,0 +1,8 @@
+---
+- name: Deploy Wazuh indexer cluster
+  hosts: wazuh_indexer
+  become: true
+  serial: 1          # bring up nodes one at a time for a clean cluster form
+  roles:
+    - role: common
+    - role: wazuh_indexer

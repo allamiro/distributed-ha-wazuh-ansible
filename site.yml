@@ -1,0 +1,13 @@
+---
+# Master playbook. Deploys the full distributed HA Wazuh stack in order.
+#
+#   ansible-playbook site.yml --ask-vault-pass
+#
+# Order matters: certificates first, then indexer cluster, then managers,
+# then dashboards, then the load balancers that front them.
+
+- import_playbook: playbooks/certificates.yml
+- import_playbook: playbooks/indexer.yml
+- import_playbook: playbooks/manager.yml
+- import_playbook: playbooks/dashboard.yml
+- import_playbook: playbooks/load_balancer.yml

@@ -1,0 +1,16 @@
+# Ansible
+*.retry
+collections/
+.vault_pass
+vault_pass.txt
+
+# Decrypted secrets — never commit the real vault
+inventories/*/group_vars/vault.yml
+inventories/*/host_vars/**/vault.yml
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/

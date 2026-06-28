@@ -1,0 +1,7 @@
+---
+- name: Deploy Wazuh dashboard(s)
+  hosts: wazuh_dashboard
+  become: true
+  roles:
+    - role: common
+    - role: wazuh_dashboard

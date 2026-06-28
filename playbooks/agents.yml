@@ -1,0 +1,7 @@
+---
+# Optional: enroll Wazuh agents on endpoints (separate inventory group).
+- name: Deploy Wazuh agents
+  hosts: wazuh_agents
+  become: true
+  roles:
+    - role: common
