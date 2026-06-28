@@ -7,9 +7,9 @@
   become: true
   vars:
     # Where agents enroll/report. Defaults to the manager master's address.
-    agent_manager_host: >-
-      {{ agent_manager_host
-         | default(hostvars[groups['wazuh_manager_master'][0]].ansible_host) }}
+    # Override with -e agent_manager_host=<ip/host> (extra-vars win over this).
+    # NOTE: do not self-reference agent_manager_host here (recursive template).
+    agent_manager_host: "{{ hostvars[groups['wazuh_manager_master'][0]].ansible_host }}"
     agent_group: "default"
   roles:
     - role: common

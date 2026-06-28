@@ -1,10 +1,10 @@
 ---
 # Master playbook. Deploys the full distributed HA Wazuh stack in order.
 #
-#   ansible-playbook site.yml --ask-vault-pass
+#   ansible-playbook site.yml -u <USER> -k -K
 #
-# Order matters: certificates first, then indexer cluster, then managers,
-# then dashboards, then the load balancers that front them.
+# Order matters: bootstrap, then certificates, then indexer cluster, then
+# managers, then dashboards, then the load balancers that front them.
 
 - import_playbook: playbooks/bootstrap.yml
 - import_playbook: playbooks/certificates.yml
@@ -12,3 +12,18 @@
 - import_playbook: playbooks/manager.yml
 - import_playbook: playbooks/dashboard.yml
 - import_playbook: playbooks/load_balancer.yml
+
+# Optional hardening: disable the Wazuh repo after everything is installed to
+# prevent accidental upgrades (Wazuh docs' "Disable Wazuh updates" step). Off by
+# default so re-runs stay idempotent. Enable with -e wazuh_repo_disable_after=yes
+# (re-running a deploy later needs the repo, so re-enable it first if you toggle).
+- name: Disable the Wazuh repository after install (optional)
+  hosts: wazuh_ca:wazuh_indexer:wazuh_manager:wazuh_dashboard:load_balancer:wazuh_agents
+  become: true
+  tasks:
+    - name: Set enabled=0 in the Wazuh repo
+      ansible.builtin.replace:
+        path: /etc/yum.repos.d/wazuh.repo
+        regexp: '^enabled=1'
+        replace: 'enabled=0'
+      when: wazuh_repo_disable_after | default(false) | bool

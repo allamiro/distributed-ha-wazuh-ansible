@@ -10,15 +10,18 @@
     - role: wazuh_indexer
 
 # Stage 2: initialize the security index ONCE, after the whole cluster is up.
-# Runs only on the bootstrap node, and only when security is enabled.
+# Target the whole indexer group and pick the bootstrap node via a task `when`
+# (play-level hosts: can't reliably resolve certs_generate_on from group_vars,
+# which would silently fall back to a hardcoded name and miss e.g. staging).
 - name: Initialize the Wazuh indexer security index (once)
-  hosts: "{{ certs_generate_on | default('indexer-hot-1') }}"
+  hosts: wazuh_indexer
   become: true
   tasks:
-    - name: Load security configuration into the cluster
+    - name: Load security configuration into the cluster (bootstrap node only)
       ansible.builtin.import_role:
         name: wazuh_indexer
         tasks_from: securityadmin
       when:
         - enable_ssl | bool
         - indexer_run_securityadmin | default(true) | bool
+        - inventory_hostname == (certs_generate_on | default(groups['indexer_hot'][0] | default(groups['wazuh_indexer'][0])))

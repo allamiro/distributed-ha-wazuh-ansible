@@ -67,7 +67,8 @@ backend dashboard_be
     option httpchk GET /
     http-check expect status 200,302
 {% for host in lb_dashboard_backends %}
-    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_dashboard_backend_port }} ssl verify none check
+{# re-encrypt to the backend only when the dashboards actually serve TLS #}
+    server {{ host }} {{ hostvars[host].ansible_host }}:{{ lb_dashboard_backend_port }} {{ 'ssl verify none ' if (http_tls | default(true) | bool) else '' }}check
 {% endfor %}
 {% else %}
 # SSL passthrough: dashboards keep their own certs, end-to-end TLS preserved.

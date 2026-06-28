@@ -9,4 +9,3 @@
     cmd: "{{ indexer_home }}/bin/indexer-security-init.sh"
   register: securityadmin_result
   changed_when: "'Done with success' in securityadmin_result.stdout"
-  run_once: true

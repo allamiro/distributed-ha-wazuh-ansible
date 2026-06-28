@@ -26,7 +26,7 @@
 
 - name: Restore the dashboard security plugin (security build, if missing)
   ansible.builtin.command:
-    cmd: "dnf reinstall -y {{ dashboard_package }}"
+    cmd: "dnf reinstall -y {{ dashboard_package }}{{ ('-' ~ wazuh_version) if wazuh_pin_packages | default(true) else '' }}"
   when:
     - enable_ssl | bool
     - not dashboard_security_plugin.stat.exists

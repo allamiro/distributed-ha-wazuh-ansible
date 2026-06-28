@@ -60,26 +60,47 @@ templates — a good follow-up task.
 | External ML server | `10.0.100.90`  | `ml_server`     | Anomaly detection / enrichment       |
 | Wazuh agents       | `10.0.200.0/24`| `wazuh_agents`  | Endpoint enrollment                  |
 
-## Two inventories: SSL and no-SSL
+## Security modes & inventories
 
-The project ships two inventories so you can stand up a quick functional test
-without TLS, then deploy the real, secured cluster:
+Security and HTTP TLS are **two independent toggles** (see
+[group_vars/all.yml](inventories/production/group_vars/all.yml)):
 
-| Inventory | TLS | CA host | Use |
-|---|---|---|---|
-| [`inventories/production`](inventories/production/) | **on** (`enable_ssl: true`) | `wazuh-ca` @ `10.0.100.100` | Real deployment — full PKI |
-| [`inventories/test-nossl`](inventories/test-nossl/) | **off** (`enable_ssl: false`) | none | Fast functional test, no certs |
+- `enable_ssl` — security plugin + transport certs + **authentication (login)**. Needs the CA.
+- `http_tls` — HTTPS on the REST/dashboard layer (can be off).
+
+The project ships three inventories covering the useful combinations:
+
+| Inventory | `enable_ssl` | `http_tls` | CA host | Login? | Use |
+|---|---|---|---|---|---|
+| [`inventories/production`](inventories/production/) | true | true | `wazuh-ca` @ `10.0.100.100` | ✅ HTTPS | Real deployment — full PKI |
+| [`inventories/test-httpauth`](inventories/test-httpauth/) | true | false | `wazuh-ca` @ `10.0.100.100` | ✅ plain HTTP | Authenticated, no HTTPS |
+| [`inventories/test-nossl`](inventories/test-nossl/) | false | false | none | ❌ no auth | Fast lab smoke test, no certs |
+
+(There is also [`inventories/staging`](inventories/staging/) — a no-SSL
+single-node-per-tier footprint for quick playbook testing.)
 
 ```bash
-# Secured (default) — replace <USER> with your sudo-capable deploy user
+# Secured HTTPS (default) — replace <USER> with your sudo-capable deploy user
 ansible-playbook site.yml -i inventories/production/hosts.yml -u <USER> -k -K
 
-# No-SSL test build
+# Authenticated over plain HTTP (login works, no HTTPS)
+ansible-playbook site.yml -i inventories/test-httpauth/hosts.yml -u <USER> -k -K
+
+# No-SSL / no-auth lab smoke test
 ansible-playbook site.yml -i inventories/test-nossl/hosts.yml -u <USER> -k -K
 ```
 
-When `enable_ssl` is **off**, the `certificates` role is skipped entirely and
-the indexer runs with `plugins.security.disabled: true`.
+When `enable_ssl` is **off**, the `certificates` role is skipped entirely, the
+indexer runs with `plugins.security.disabled: true`, and the dashboard's
+security plugin is removed (no login). Transport TLS (and thus the CA) is
+mandatory whenever `enable_ssl` is **on**, even if `http_tls` is off.
+
+> **Version: this is a frozen 4.9.0 deployment.** `wazuh_version: 4.9.0` is
+> pinned and packages install `wazuh-*-4.9.0` (via `wazuh_pin_packages`), matched
+> to the Filebeat module `0.4` and the `v4.9.0` alerts template. It is **not**
+> tracking the current docs (4.14 / Filebeat `0.5`). To move to current, set
+> `wazuh_version` (e.g. `4.14.x`) and `filebeat_module_version: "0.5"` in
+> group_vars.
 
 ### How the CA works (`enable_ssl: true`)
 
@@ -101,15 +122,22 @@ from the server cluster to the indexer cluster:
 | **Indexer connector** | `<indexer>` block in `ossec.conf` | vulnerability data (ECS) | `/etc/filebeat/certs` |
 
 Both point at **every** indexer node (derived from the inventory) and flip
-between `https`/`http` based on `enable_ssl`. Filebeat also pulls the Wazuh
-alerts template + module and includes the `rseq` seccomp allow needed on Rocky 9.
+between `https`/`http` based on `http_tls` (auth credentials are sent whenever
+`enable_ssl` is on). Filebeat also pulls the Wazuh alerts template + module and
+includes the `rseq` seccomp allow needed on Rocky 9.
 
 Firewalld ports are opened per role: indexer `9200/9300`, manager
 `1514/1515/1516/55000`, dashboard `443`.
 
 **Credentials.** The actual passwords/keys are plain values in
 [`group_vars/all.yml`](inventories/production/group_vars/all.yml) — **no Ansible
-Vault required**. On the targets they're still kept out of the on-disk service
+Vault required** (a deliberate choice for this lab project).
+
+> ⚠️ **Production:** the shipped values are well-known Wazuh defaults
+> (`admin`/`kibanaserver`/`wazuh-wui`, a sample cluster key, etc.). Before any
+> real/exposed deployment you **must** replace them with unique secrets — and
+> ideally encrypt them with `ansible-vault` (every `vault_*` reference still has
+> a default, so vault is opt-in, not required). On the targets they're still kept out of the on-disk service
 configs: Filebeat reads them from the **Filebeat keystore**
 (`${username}`/`${password}` in `filebeat.yml`) and the indexer connector from
 the **Wazuh manager keystore** (`wazuh-keystore -f indexer`). After first deploy,
