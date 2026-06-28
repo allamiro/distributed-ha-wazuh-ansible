@@ -1,13 +1,5 @@
 ---
 # roles/common/handlers/main.yml
-
-# Restart NetworkManager so it re-applies the connection AND regenerates
-# /etc/resolv.conf (nmcli connection up alone did not reliably rewrite it).
-- name: Reload primary connection
-  ansible.builtin.systemd:
-    name: NetworkManager
-    state: restarted
-
-- name: Bring the primary connection back up
-  ansible.builtin.command: "nmcli connection up {{ common_primary_conn }}"
-  changed_when: true
+# (No handlers: DNS/gateway changes are applied inline in network.yml via an
+# async NetworkManager restart + wait_for_connection, because restarting NM
+# drops the SSH session and a normal handler would die with it.)

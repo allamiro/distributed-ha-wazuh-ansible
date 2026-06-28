@@ -52,9 +52,6 @@
       fi
   register: dns_cfg
   changed_when: "'CHANGED' in dns_cfg.stdout"
-  notify:
-    - Reload primary connection
-    - Bring the primary connection back up
 
 # Only pin the gateway on STATIC (manual) connections — on DHCP the gateway is
 # provided automatically and nmcli refuses a static gateway.
@@ -74,15 +71,23 @@
       fi
   register: gw_cfg
   changed_when: "'CHANGED' in gw_cfg.stdout"
-  notify:
-    - Reload primary connection
-    - Bring the primary connection back up
   when: common_configure_gateway | bool
 
-# Restart NetworkManager NOW (flush handlers) so resolv.conf is regenerated
-# before the dnf/repo tasks that follow in this same role.
-- name: Apply DNS/gateway changes immediately
-  ansible.builtin.meta: flush_handlers
+# Apply the change by restarting NetworkManager so /etc/resolv.conf is
+# regenerated. Restarting NM drops our SSH session, so do it fire-and-forget
+# (async + poll 0) and then wait for the host to come back — otherwise the task
+# dies with the connection (this is what failed every non-dashboard host).
+- name: Restart NetworkManager to apply DNS/gateway (async; drops SSH briefly)
+  ansible.builtin.command: systemctl restart NetworkManager
+  async: 60
+  poll: 0
+  when: dns_cfg is changed or gw_cfg is changed
+
+- name: Wait for the host to be reachable again after the restart
+  ansible.builtin.wait_for_connection:
+    delay: 3
+    timeout: 120
+  when: dns_cfg is changed or gw_cfg is changed
 
 - name: Verify the configured DNS is present in /etc/resolv.conf
   ansible.builtin.command: "grep -q '{{ dns_servers[0] }}' /etc/resolv.conf"
